@@ -1,0 +1,210 @@
+@extends('layouts.app')
+@section('title', 'Productos — Multipartes El Tuerca')
+@section('breadcrumb')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+    <li class="breadcrumb-item active">Productos</li>
+@endsection
+
+@section('content')
+{{-- ═══ CABECERA ═══ --}}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+    <div>
+        <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
+            <i class="bi bi-box-seam me-2" style="color:#007AFF;"></i>Gestión de Repuestos e Inventario
+        </h4>
+        <p style="color:#64748B;font-size:0.85rem;margin:0;">
+            Administra el catálogo completo de repuestos, precios, stock y ubicación en bodega.
+        </p>
+    </div>
+    <a href="{{ route('productos.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo Repuesto
+    </a>
+</div>
+
+{{-- ═══ FILTROS ═══ --}}
+<div style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:14px;padding:1rem 1.25rem;margin-bottom:1rem;box-shadow:0 1px 2px rgba(15,23,42,0.03);">
+    <form method="GET" action="{{ route('productos.index') }}">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label style="font-size:0.75rem;font-weight:500;color:#64748B;margin-bottom:0.2rem;display:block;">Buscar</label>
+                <div style="position:relative;">
+                    <i class="bi bi-search" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:0.85rem;"></i>
+                    <input type="text" name="buscar" class="form-control form-control-dark"
+                           placeholder="Código, OEM, nombre, marca..."
+                           value="{{ request('buscar') }}"
+                           style="padding-left:2.2rem;">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label style="font-size:0.75rem;font-weight:500;color:#64748B;margin-bottom:0.2rem;display:block;">Categoría</label>
+                <select name="id_categoria" class="form-select form-select-dark">
+                    <option value="">Todas las categorías</option>
+                    @foreach($categorias as $cat)
+                        <option value="{{ $cat->id_categoria }}" {{ request('id_categoria') == $cat->id_categoria ? 'selected' : '' }}>
+                            {{ $cat->nombre }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label style="font-size:0.75rem;font-weight:500;color:#64748B;margin-bottom:0.2rem;display:block;">Estado</label>
+                <select name="estado" class="form-select form-select-dark">
+                    <option value="">Todos</option>
+                    <option value="activo" {{ request('estado') == 'activo' ? 'selected' : '' }}>Activos</option>
+                    <option value="inactivo" {{ request('estado') == 'inactivo' ? 'selected' : '' }}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-tuerca" type="submit" style="padding:0.5rem 1rem;">
+                    <i class="bi bi-search me-1"></i>Buscar
+                </button>
+                <a href="{{ route('productos.index') }}" class="btn btn-outline-tuerca" style="padding:0.5rem 0.75rem;" title="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+{{-- ═══ TABLA DE PRODUCTOS ═══ --}}
+<div style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);overflow:hidden;">
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#FAFBFC;">
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Código Int.</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">OEM</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Pieza / Especificación</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Categoría</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Marca</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:right;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Precio (Bs.)</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:center;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Stock</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Ubicación</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Estado</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:center;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($productos as $p)
+                <tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;" onmouseenter="this.style.background='#F8FAFC'" onmouseleave="this.style.background='transparent'">
+                    {{-- Código Interno --}}
+                    <td style="padding:0.7rem 1rem;">
+                        <span style="font-family:'SF Mono','Fira Code',monospace;font-weight:600;font-size:0.82rem;color:#007AFF;">
+                            {{ $p->codigo_interno }}
+                        </span>
+                    </td>
+
+                    {{-- OEM --}}
+                    <td style="padding:0.7rem 1rem;">
+                        <span style="font-family:'SF Mono','Fira Code',monospace;font-size:0.8rem;color:#64748B;">
+                            {{ $p->codigo_oem ?: '—' }}
+                        </span>
+                    </td>
+
+                    {{-- Pieza / Especificación --}}
+                    <td style="padding:0.7rem 1rem;">
+                        <div style="font-weight:500;color:#1E293B;font-size:0.85rem;">{{ Str::limit($p->nombre_pieza, 40) }}</div>
+                        @if($p->procedencia)
+                            <div style="color:#94A3B8;font-size:0.72rem;">{{ $p->procedencia }} · {{ $p->unidad_medida }}</div>
+                        @endif
+                    </td>
+
+                    {{-- Categoría --}}
+                    <td style="padding:0.7rem 1rem;">
+                        <span style="display:inline-block;background:#F5F3FF;color:#7C3AED;font-size:0.72rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:6px;border:1px solid #DDD6FE;">
+                            {{ $p->categoria->nombre }}
+                        </span>
+                    </td>
+
+                    {{-- Marca --}}
+                    <td style="padding:0.7rem 1rem;font-size:0.85rem;color:#334155;">
+                        {{ $p->marca_fabricante ?? '—' }}
+                    </td>
+
+                    {{-- Precio --}}
+                    <td style="padding:0.7rem 1rem;text-align:right;">
+                        <span style="font-weight:600;color:#1E293B;font-size:0.88rem;">{{ number_format($p->precio_venta_sugerido, 2) }}</span>
+                    </td>
+
+                    {{-- Stock --}}
+                    <td style="padding:0.7rem 1rem;text-align:center;">
+                        @if($p->stock_actual <= $p->stock_minimo)
+                            <span style="display:inline-flex;align-items:center;gap:0.3rem;background:#FFFBEB;color:#D97706;font-size:0.75rem;font-weight:600;padding:0.25rem 0.6rem;border-radius:6px;border:1px solid #FDE68A;">
+                                <i class="bi bi-exclamation-triangle" style="font-size:0.65rem;"></i>{{ $p->stock_actual }}
+                            </span>
+                        @else
+                            <span style="display:inline-flex;align-items:center;gap:0.3rem;background:#ECFDF5;color:#059669;font-size:0.75rem;font-weight:600;padding:0.25rem 0.6rem;border-radius:6px;border:1px solid #A7F3D0;">
+                                {{ $p->stock_actual }}
+                            </span>
+                        @endif
+                    </td>
+
+                    {{-- Ubicación --}}
+                    <td style="padding:0.7rem 1rem;">
+                        <span style="font-size:0.78rem;color:#64748B;background:#F1F5F9;padding:0.2rem 0.5rem;border-radius:5px;">
+                            <i class="bi bi-geo-alt" style="font-size:0.65rem;margin-right:0.15rem;"></i>{{ $p->pasillo }}/{{ $p->estante }}/{{ $p->nivel_gaveta }}
+                        </span>
+                    </td>
+
+                    {{-- Estado --}}
+                    <td style="padding:0.7rem 1rem;">
+                        @if($p->estado)
+                            <span style="display:inline-flex;align-items:center;gap:0.3rem;background:#ECFDF5;color:#059669;font-size:0.72rem;font-weight:500;padding:0.25rem 0.65rem;border-radius:20px;border:1px solid #A7F3D0;">
+                                <i class="bi bi-circle-fill" style="font-size:0.3rem;"></i>Activo
+                            </span>
+                        @else
+                            <span style="display:inline-flex;align-items:center;gap:0.3rem;background:#FEF2F2;color:#DC2626;font-size:0.72rem;font-weight:500;padding:0.25rem 0.65rem;border-radius:20px;border:1px solid #FECACA;">
+                                <i class="bi bi-circle-fill" style="font-size:0.3rem;"></i>Inactivo
+                            </span>
+                        @endif
+                    </td>
+
+                    {{-- Acciones --}}
+                    <td style="padding:0.7rem 1rem;text-align:center;">
+                        <div class="d-flex justify-content-center gap-1">
+                            <a href="{{ route('productos.edit', $p->id_producto) }}"
+                               style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;color:#2563EB;text-decoration:none;transition:all 0.15s;"
+                               title="Editar"
+                               onmouseenter="this.style.background='#DBEAFE'" onmouseleave="this.style.background='#EFF6FF'">
+                                <i class="bi bi-pencil" style="font-size:0.8rem;"></i>
+                            </a>
+                            <form action="{{ route('productos.toggle', $p->id_producto) }}" method="POST" class="d-inline">
+                                @csrf @method('PATCH')
+                                <button type="submit"
+                                        style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:{{ $p->estado ? '#FFFBEB' : '#ECFDF5' }};border:1px solid {{ $p->estado ? '#FDE68A' : '#A7F3D0' }};border-radius:8px;color:{{ $p->estado ? '#D97706' : '#059669' }};cursor:pointer;transition:all 0.15s;"
+                                        title="{{ $p->estado ? 'Desactivar' : 'Activar' }}"
+                                        onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+                                    <i class="bi bi-{{ $p->estado ? 'toggle-on' : 'toggle-off' }}" style="font-size:0.9rem;"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="10" style="padding:3rem;text-align:center;">
+                        <div style="color:#94A3B8;">
+                            <i class="bi bi-inbox" style="font-size:2.5rem;display:block;margin-bottom:0.75rem;"></i>
+                            <p style="font-size:0.9rem;font-weight:500;color:#64748B;margin-bottom:0.25rem;">No se encontraron productos</p>
+                            <p style="font-size:0.8rem;color:#94A3B8;margin:0;">Intenta cambiar los filtros o agrega un nuevo repuesto.</p>
+                        </div>
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    {{-- Paginación --}}
+    @if($productos->hasPages())
+    <div style="padding:0.85rem 1.25rem;border-top:1px solid #E2E8F0;background:#FAFBFC;">
+        {{ $productos->links() }}
+    </div>
+    @endif
+</div>
+
+{{-- Contador de registros --}}
+<div style="margin-top:0.75rem;font-size:0.78rem;color:#94A3B8;text-align:right;">
+    Mostrando {{ $productos->firstItem() ?? 0 }}–{{ $productos->lastItem() ?? 0 }} de {{ $productos->total() }} productos
+</div>
+@endsection
