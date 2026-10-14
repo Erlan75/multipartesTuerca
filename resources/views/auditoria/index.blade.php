@@ -79,6 +79,11 @@
                                     'ANULACION' => 'danger',
                                     'LOGIN' => 'info',
                                     'LOGOUT' => 'secondary',
+                                    'LOGIN_FALLIDO' => 'warning',
+                                    'CUENTA_BLOQUEADA', 'LOGIN_BLOQUEADO' => 'danger',
+                                    'PASSWORD_RESET_SOLICITUD' => 'info',
+                                    'PASSWORD_RESET_EXITOSO' => 'success',
+                                    'PASSWORD_CAMBIO_PERFIL' => 'primary',
                                     default => 'secondary',
                                 };
                             @endphp

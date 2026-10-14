@@ -5,24 +5,51 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Producto;
 use App\Models\Categoria;
+use App\Models\Vehiculo;
 use App\Helpers\Bitacora;
 
 class ProductoController extends Controller
 {
     /**
-     * CU08: Listar productos con filtros y paginación.
+     * CU08, CU12, CU13, CU14: Listar productos con búsqueda técnica multicriterio y coordenadas de almacén.
      */
     public function index(Request $request)
     {
-        $query = Producto::with('categoria');
+        $query = Producto::with(['categoria', 'codigosAlternativos', 'vehiculos']);
 
         if ($request->filled('buscar')) {
-            $buscar = $request->buscar;
+            $buscar = trim($request->buscar);
             $query->where(function ($q) use ($buscar) {
                 $q->where('codigo_interno', 'ilike', "%{$buscar}%")
                   ->orWhere('codigo_oem', 'ilike', "%{$buscar}%")
                   ->orWhere('nombre_pieza', 'ilike', "%{$buscar}%")
-                  ->orWhere('marca_fabricante', 'ilike', "%{$buscar}%");
+                  ->orWhere('marca_fabricante', 'ilike', "%{$buscar}%")
+                  ->orWhereHas('codigosAlternativos', function ($ca) use ($buscar) {
+                      $ca->where('codigo_referencia', 'ilike', "%{$buscar}%")
+                         ->orWhere('marca_alternativa', 'ilike', "%{$buscar}%");
+                  });
+            });
+        }
+
+        if ($request->filled('marca_vehiculo')) {
+            $marca = $request->marca_vehiculo;
+            $query->whereHas('vehiculos', function ($v) use ($marca) {
+                $v->where('marca', $marca);
+            });
+        }
+
+        if ($request->filled('modelo_vehiculo')) {
+            $modelo = $request->modelo_vehiculo;
+            $query->whereHas('vehiculos', function ($v) use ($modelo) {
+                $v->where('modelo', 'ilike', "%{$modelo}%");
+            });
+        }
+
+        if ($request->filled('anio_vehiculo')) {
+            $anio = (int)$request->anio_vehiculo;
+            $query->whereHas('vehiculos', function ($v) use ($anio) {
+                $v->where('anio_inicio', '<=', $anio)
+                  ->where('anio_fin', '>=', $anio);
             });
         }
 
@@ -36,8 +63,9 @@ class ProductoController extends Controller
 
         $productos = $query->orderBy('id_producto')->paginate(15)->withQueryString();
         $categorias = Categoria::orderBy('nombre')->get();
+        $marcasVehiculos = Vehiculo::select('marca')->distinct()->orderBy('marca')->pluck('marca');
 
-        return view('productos.index', compact('productos', 'categorias'));
+        return view('productos.index', compact('productos', 'categorias', 'marcasVehiculos'));
     }
 
     /**
@@ -170,5 +198,44 @@ class ProductoController extends Controller
 
         return redirect()->route('productos.index')
             ->with('success', 'Producto "' . $producto->nombre_pieza . '" ' . $estado . '.');
+    }
+
+    /**
+     * CU15: Asignar o actualizar coordenadas físicas de almacenamiento (Pasillo, Estante, Gaveta).
+     */
+    public function actualizarUbicacion(Request $request, $id)
+    {
+        $producto = Producto::findOrFail($id);
+
+        $request->validate([
+            'pasillo'      => 'nullable|string|max:20',
+            'estante'      => 'nullable|string|max:20',
+            'nivel_gaveta' => 'nullable|string|max:20',
+        ]);
+
+        $anterior = "{$producto->pasillo} / {$producto->estante} / {$producto->nivel_gaveta}";
+
+        $producto->update([
+            'pasillo'      => $request->filled('pasillo') ? trim($request->pasillo) : null,
+            'estante'      => $request->filled('estante') ? trim($request->estante) : null,
+            'nivel_gaveta' => $request->filled('nivel_gaveta') ? trim($request->nivel_gaveta) : null,
+        ]);
+
+        $nuevo = "{$producto->pasillo} / {$producto->estante} / {$producto->nivel_gaveta}";
+
+        Bitacora::registrar(
+            'Almacén / Zonificación',
+            'UPDATE',
+            $producto->id_producto,
+            json_encode([
+                'accion' => 'Actualizar coordenadas de almacenamiento',
+                'producto' => $producto->nombre_pieza,
+                'codigo' => $producto->codigo_interno,
+                'ubicacion_anterior' => $anterior,
+                'ubicacion_nueva' => $nuevo,
+            ])
+        );
+
+        return back()->with('success', "Ubicación de '{$producto->nombre_pieza}' actualizada: [{$nuevo}].");
     }
 }

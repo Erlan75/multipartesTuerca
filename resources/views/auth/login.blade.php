@@ -169,6 +169,56 @@
             font-size: 0.82rem;
             margin-bottom: 1rem;
         }
+
+        .alert-success-mac {
+            background: #ECFDF5;
+            border: 1px solid #A7F3D0;
+            color: #065F46;
+            border-radius: 14px;
+            padding: 0.75rem 1rem;
+            font-size: 0.84rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .alert-bloqueado-mac {
+            background-color: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #B91C1C;
+            border-radius: 16px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1.25rem;
+            text-align: left;
+        }
+
+        .btn-recuperar-link {
+            color: #007AFF;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.82rem;
+            display: inline-flex;
+            align-items: center;
+            transition: color 0.2s;
+        }
+
+        .btn-recuperar-link:hover {
+            color: #0055D4;
+            text-decoration: underline;
+        }
+
+        .forgot-link {
+            color: #64748B;
+            font-size: 0.82rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .forgot-link:hover {
+            color: #007AFF;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -180,7 +230,33 @@
             <h1 class="login-title">Multipartes El Tuerca</h1>
             <p class="login-subtitle">Sistema de Gestión Comercial Automotriz</p>
 
-            @if($errors->any())
+            @if(session('success'))
+                <div class="alert-success-mac">
+                    <i class="bi bi-check-circle-fill me-2 fs-5 text-success"></i>
+                    <span>{{ session('success') }}</span>
+                </div>
+            @endif
+
+            @if($errors->has('bloqueado'))
+                <div class="alert-bloqueado-mac bg-red-50 border-red-200 text-red-700 rounded-xl p-4">
+                    <div class="d-flex align-items-start gap-3">
+                        <i class="bi bi-shield-lock-fill text-danger fs-3 flex-shrink-0 mt-1"></i>
+                        <div>
+                            <div class="fw-bold mb-1" style="font-size:0.92rem; color:#991B1B;">
+                                Acceso Temporalmente Bloqueado
+                            </div>
+                            <div style="font-size:0.83rem; line-height: 1.45; color: #7F1D1D;">
+                                {{ $errors->first('bloqueado') }}
+                            </div>
+                            <div class="mt-2 pt-1 border-top" style="border-color: rgba(239, 68, 68, 0.2) !important;">
+                                <a href="{{ route('password.request') }}" class="btn-recuperar-link">
+                                    <i class="bi bi-key me-1"></i>Recuperar contraseña ahora &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @elseif($errors->any())
                 <div class="error-msg">
                     <i class="bi bi-exclamation-circle me-1"></i>
                     {{ $errors->first() }}
@@ -192,20 +268,26 @@
 
                 <div class="form-floating-light">
                     <input type="text" name="username" id="username"
-                           placeholder="Nombre de usuario"
+                           placeholder="Nombre de usuario o correo"
                            value="{{ old('username') }}"
                            required autofocus>
                     <i class="bi bi-person input-icon"></i>
                 </div>
 
-                <div class="form-floating-light">
+                <div class="form-floating-light mb-2">
                     <input type="password" name="password" id="password"
                            placeholder="Contraseña"
                            required>
                     <i class="bi bi-lock input-icon"></i>
                 </div>
 
-                <button type="submit" class="btn btn-login mt-2">
+                <div class="d-flex justify-content-end mb-3">
+                    <a href="{{ route('password.request') }}" class="forgot-link">
+                        <i class="bi bi-question-circle me-1"></i>¿Olvidaste tu contraseña?
+                    </a>
+                </div>
+
+                <button type="submit" class="btn btn-login mt-1">
                     <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
                 </button>
             </form>

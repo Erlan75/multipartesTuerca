@@ -22,21 +22,23 @@
 </div>
 
 {{-- ═══ FILTROS ═══ --}}
-<div style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:14px;padding:1rem 1.25rem;margin-bottom:1rem;box-shadow:0 1px 2px rgba(15,23,42,0.03);">
+<div style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:14px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 1px 2px rgba(15,23,42,0.03);">
     <form method="GET" action="{{ route('productos.index') }}">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-4">
-                <label style="font-size:0.75rem;font-weight:500;color:#64748B;margin-bottom:0.2rem;display:block;">Buscar</label>
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-5">
+                <label style="font-size:0.75rem;font-weight:600;color:#64748B;margin-bottom:0.2rem;display:block;">
+                    Búsqueda Rápida / Código Cruzado (OEM o Alternativo)
+                </label>
                 <div style="position:relative;">
                     <i class="bi bi-search" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:0.85rem;"></i>
                     <input type="text" name="buscar" class="form-control form-control-dark"
-                           placeholder="Código, OEM, nombre, marca..."
+                           placeholder="Código interno, OEM, código alternativo, pieza..."
                            value="{{ request('buscar') }}"
                            style="padding-left:2.2rem;">
                 </div>
             </div>
             <div class="col-md-3">
-                <label style="font-size:0.75rem;font-weight:500;color:#64748B;margin-bottom:0.2rem;display:block;">Categoría</label>
+                <label style="font-size:0.75rem;font-weight:600;color:#64748B;margin-bottom:0.2rem;display:block;">Categoría</label>
                 <select name="id_categoria" class="form-select form-select-dark">
                     <option value="">Todas las categorías</option>
                     @foreach($categorias as $cat)
@@ -47,29 +49,63 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label style="font-size:0.75rem;font-weight:500;color:#64748B;margin-bottom:0.2rem;display:block;">Estado</label>
+                <label style="font-size:0.75rem;font-weight:600;color:#64748B;margin-bottom:0.2rem;display:block;">Estado</label>
                 <select name="estado" class="form-select form-select-dark">
                     <option value="">Todos</option>
                     <option value="activo" {{ request('estado') == 'activo' ? 'selected' : '' }}>Activos</option>
                     <option value="inactivo" {{ request('estado') == 'inactivo' ? 'selected' : '' }}>Inactivos</option>
                 </select>
             </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-tuerca" type="submit" style="padding:0.5rem 1rem;">
-                    <i class="bi bi-search me-1"></i>Buscar
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-tuerca w-100" type="submit" style="padding:0.5rem 0.75rem;">
+                    <i class="bi bi-search me-1"></i>Filtrar
                 </button>
                 <a href="{{ route('productos.index') }}" class="btn btn-outline-tuerca" style="padding:0.5rem 0.75rem;" title="Limpiar filtros">
                     <i class="bi bi-x-lg"></i>
                 </a>
             </div>
         </div>
+
+        {{-- Filtros Técnicos de Vehículo (CU12) --}}
+        <div class="pt-2 border-top" style="border-color:#F1F5F9 !important;">
+            <div class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <span style="font-size:0.75rem;font-weight:600;color:#007AFF;">
+                        <i class="bi bi-truck me-1"></i>Filtro Vehicular (CU12):
+                    </span>
+                </div>
+                <div class="col-md-3">
+                    <select name="marca_vehiculo" class="form-select form-select-dark form-select-sm" style="font-size:0.8rem;">
+                        <option value="">Marca de Vehículo...</option>
+                        @foreach($marcasVehiculos as $m)
+                            <option value="{{ $m }}" {{ request('marca_vehiculo') == $m ? 'selected' : '' }}>{{ $m }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="modelo_vehiculo" class="form-control form-control-dark form-control-sm"
+                           placeholder="Modelo (ej: Corolla, Hilux)..."
+                           value="{{ request('modelo_vehiculo') }}" style="font-size:0.8rem;">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="anio_vehiculo" class="form-control form-control-dark form-control-sm"
+                           placeholder="Año (ej: 2018)..."
+                           value="{{ request('anio_vehiculo') }}" style="font-size:0.8rem;">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-sm btn-outline-secondary" type="submit" style="font-size:0.75rem;padding:0.35rem 0.7rem;">
+                        Aplicar Vehicular
+                    </button>
+                </div>
+            </div>
+        </div>
     </form>
 </div>
 
 {{-- ═══ TABLA DE PRODUCTOS ═══ --}}
-<div style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);overflow:hidden;">
-    <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;">
+<div class="table-responsive-container" style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);overflow:hidden;">
+    <div class="overflow-x-auto">
+        <table style="width:100%;min-width:850px;border-collapse:collapse;">
             <thead>
                 <tr style="background:#FAFBFC;">
                     <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;">Código Int.</th>
@@ -139,11 +175,29 @@
                         @endif
                     </td>
 
-                    {{-- Ubicación --}}
+                    {{-- Ubicación (CU14 / CU15) --}}
                     <td style="padding:0.7rem 1rem;">
-                        <span style="font-size:0.78rem;color:#64748B;background:#F1F5F9;padding:0.2rem 0.5rem;border-radius:5px;">
-                            <i class="bi bi-geo-alt" style="font-size:0.65rem;margin-right:0.15rem;"></i>{{ $p->pasillo }}/{{ $p->estante }}/{{ $p->nivel_gaveta }}
-                        </span>
+                        @if($p->pasillo || $p->estante || $p->nivel_gaveta)
+                            <div class="d-flex align-items-center gap-1">
+                                <span style="font-size:0.78rem;color:#1E293B;background:#F1F5F9;padding:0.25rem 0.55rem;border-radius:6px;border:1px solid #E2E8F0;font-weight:500;">
+                                    <i class="bi bi-geo-alt-fill text-primary" style="font-size:0.7rem;margin-right:0.2rem;"></i>P: {{ $p->pasillo ?? '—' }} | E: {{ $p->estante ?? '—' }} | G: {{ $p->nivel_gaveta ?? '—' }}
+                                </span>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-primary" title="Editar coordenadas"
+                                        onclick="abrirModalUbicacion({{ $p->id_producto }}, '{{ addslashes($p->nombre_pieza) }}', '{{ $p->pasillo }}', '{{ $p->estante }}', '{{ $p->nivel_gaveta }}')">
+                                    <i class="bi bi-pencil-square" style="font-size:0.85rem;"></i>
+                                </button>
+                            </div>
+                        @else
+                            <div class="d-flex align-items-center gap-1">
+                                <span style="font-size:0.72rem;color:#D97706;background:#FFFBEB;padding:0.2rem 0.5rem;border-radius:6px;border:1px solid #FDE68A;font-weight:500;">
+                                    <i class="bi bi-geo-alt me-1"></i>Sin zonificar
+                                </span>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-primary" title="Asignar coordenadas"
+                                        onclick="abrirModalUbicacion({{ $p->id_producto }}, '{{ addslashes($p->nombre_pieza) }}', '', '', '')">
+                                    <i class="bi bi-plus-circle" style="font-size:0.85rem;"></i>
+                                </button>
+                            </div>
+                        @endif
                     </td>
 
                     {{-- Estado --}}
@@ -207,4 +261,57 @@
 <div style="margin-top:0.75rem;font-size:0.78rem;color:#94A3B8;text-align:right;">
     Mostrando {{ $productos->firstItem() ?? 0 }}–{{ $productos->lastItem() ?? 0 }} de {{ $productos->total() }} productos
 </div>
+
+{{-- Modal Asignar Ubicación Rápida (CU15) --}}
+<div class="modal fade" id="modalUbicacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered w-11/12 max-w-lg mx-auto" style="max-width: 520px;">
+        <div class="modal-content modal-content-dark p-2">
+            <form id="formUbicacion" method="POST" action="">
+                @csrf
+                @method('PATCH')
+                <div class="modal-header py-3 px-3">
+                    <h6 class="modal-title fs-6"><i class="bi bi-geo-alt me-2 text-primary"></i>Asignar Coordenadas de Almacén (CU15)</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" style="min-height:36px;min-width:36px;"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <p style="font-size:0.85rem;color:#64748B;margin-bottom:1rem;">
+                        Repuesto: <strong id="modalProdNombre" class="text-dark"></strong>
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label-dark">Pasillo</label>
+                            <input type="text" name="pasillo" id="modalPasillo" class="form-control form-control-dark" placeholder="Ej: P-01" maxlength="20">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-dark">Estante</label>
+                            <input type="text" name="estante" id="modalEstante" class="form-control form-control-dark" placeholder="Ej: E-03" maxlength="20">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-dark">Nivel / Gaveta</label>
+                            <input type="text" name="nivel_gaveta" id="modalGaveta" class="form-control form-control-dark" placeholder="Ej: G-02" maxlength="20">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 px-3">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="min-height:44px;padding:0.5rem 1.25rem;">Cancelar</button>
+                    <button type="submit" class="btn btn-tuerca" style="min-height:44px;padding:0.5rem 1.25rem;">Guardar Coordenada</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+function abrirModalUbicacion(id, nombre, pasillo, estante, gaveta) {
+    document.getElementById('modalProdNombre').innerText = nombre;
+    document.getElementById('modalPasillo').value = pasillo;
+    document.getElementById('modalEstante').value = estante;
+    document.getElementById('modalGaveta').value = gaveta;
+    document.getElementById('formUbicacion').action = `/productos/${id}/ubicacion`;
+    new bootstrap.Modal(document.getElementById('modalUbicacion')).show();
+}
+</script>
+@endpush
 @endsection
+

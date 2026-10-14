@@ -60,4 +60,14 @@ class Producto extends Model
             'id_vehiculo'
         )->withPivot('id_compatibilidad', 'notas_posicion');
     }
+
+    public function ajustes()
+    {
+        return $this->hasMany(AjusteInventario::class, 'id_producto', 'id_producto');
+    }
+
+    public function detallesCompras()
+    {
+        return $this->hasMany(DetalleCompra::class, 'id_producto', 'id_producto');
+    }
 }

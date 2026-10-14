@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.*
+node_modules
+npm-debug.log
+yarn-error.log
+vendor
+tests
+storage/*.key
+.phpunit.result.cache
+*.log
+Dockerfile
+.dockerignore
+render.yaml

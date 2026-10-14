@@ -13,6 +13,9 @@ use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\CompatibilidadController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\CompraController;
 
 // ═══════════════════════════════════════════════════════════════
 // RUTAS PÚBLICAS (Sin autenticación)
@@ -20,6 +23,12 @@ use App\Http\Controllers\HomeController;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+
+// ── Recuperación de Contraseña (Público) ──
+Route::get('/recuperar-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+Route::post('/recuperar-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+Route::get('/restablecer-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
+Route::post('/restablecer-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
 // ═══════════════════════════════════════════════════════════════
 // RUTAS PROTEGIDAS (Requieren autenticación)
@@ -37,7 +46,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/perfil/password', [PerfilController::class, 'updatePassword'])->name('perfil.password.update');
 
     // ═════════════════════════════════════════════════════════════
-    // MÓDULO 1: SEGURIDAD Y ACCESO (Solo Administrador)
+    // MÓDULO 1: SEGURIDAD Y ACCESO + ADMINISTRACIÓN (Solo Administrador)
     // ═════════════════════════════════════════════════════════════
     Route::middleware('role:Administrador')->group(function () {
 
@@ -57,10 +66,23 @@ Route::middleware('auth')->group(function () {
 
         // ── Bitácora de Auditoría (CU06) ──
         Route::get('/auditoria', [AuditoriaController::class, 'index'])->name('auditoria.index');
+
+        // ── Gestión de Proveedores (CU19) ──
+        Route::get('/proveedores', [ProveedorController::class, 'index'])->name('proveedores.index');
+        Route::get('/proveedores/crear', [ProveedorController::class, 'create'])->name('proveedores.create');
+        Route::post('/proveedores', [ProveedorController::class, 'store'])->name('proveedores.store');
+        Route::get('/proveedores/{id}/editar', [ProveedorController::class, 'edit'])->name('proveedores.edit');
+        Route::put('/proveedores/{id}', [ProveedorController::class, 'update'])->name('proveedores.update');
+        Route::patch('/proveedores/{id}/toggle', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle');
+
+        // ── Cuentas por Pagar a Proveedores y Liquidación a Crédito (CU22) ──
+        Route::get('/compras/cuentas/por-pagar', [CompraController::class, 'cuentasPorPagar'])->name('compras.cuentas-por-pagar');
+        Route::post('/compras/{id}/liquidar-pago', [CompraController::class, 'liquidarPago'])->name('compras.liquidar-pago');
     });
 
     // ═════════════════════════════════════════════════════════════
-    // MÓDULO 2: CATÁLOGO Y COMPATIBILIDAD (Administrador + Bodeguero)
+    // MÓDULO 2 Y 3: CATÁLOGO, ALMACÉN, INVENTARIO Y COMPRAS
+    // (Administrador + Bodeguero)
     // ═════════════════════════════════════════════════════════════
     Route::middleware('role:Administrador,Bodeguero')->group(function () {
 
@@ -70,13 +92,14 @@ Route::middleware('auth')->group(function () {
         Route::put('/categorias/{id}', [CategoriaController::class, 'update'])->name('categorias.update');
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy'])->name('categorias.destroy');
 
-        // ── Productos (CU08) ──
+        // ── Productos y Búsqueda Técnica (CU08, CU12, CU13, CU14, CU15) ──
         Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
         Route::get('/productos/crear', [ProductoController::class, 'create'])->name('productos.create');
         Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
         Route::get('/productos/{id}/editar', [ProductoController::class, 'edit'])->name('productos.edit');
         Route::put('/productos/{id}', [ProductoController::class, 'update'])->name('productos.update');
         Route::patch('/productos/{id}/toggle', [ProductoController::class, 'toggleStatus'])->name('productos.toggle');
+        Route::patch('/productos/{id}/ubicacion', [ProductoController::class, 'actualizarUbicacion'])->name('productos.ubicacion');
 
         // ── Códigos Alternativos (CU09) ──
         Route::post('/codigos-alternativos', [CodigoAlternativoController::class, 'store'])->name('codigos-alternativos.store');
@@ -91,5 +114,20 @@ Route::middleware('auth')->group(function () {
         // ── Compatibilidades (CU11) ──
         Route::post('/compatibilidades', [CompatibilidadController::class, 'store'])->name('compatibilidades.store');
         Route::delete('/compatibilidades/{id}', [CompatibilidadController::class, 'destroy'])->name('compatibilidades.destroy');
+
+        // ── Alertas de Stock Mínimo y Crítico (CU16) ──
+        Route::get('/inventario/alertas', [InventarioController::class, 'alertas'])->name('inventario.alertas');
+
+        // ── Ajustes Manuales y Uso Interno (CU17, CU18) ──
+        Route::get('/inventario/ajustes', [InventarioController::class, 'ajustes'])->name('inventario.ajustes');
+        Route::post('/inventario/ajustes', [InventarioController::class, 'storeAjuste'])->name('inventario.ajustes.store');
+
+        // ── Compras, Recepción y Costos de Adquisición (CU20, CU21) ──
+        Route::get('/compras', [CompraController::class, 'index'])->name('compras.index');
+        Route::get('/compras/recepcion', [CompraController::class, 'create'])->name('compras.create');
+        Route::post('/compras', [CompraController::class, 'store'])->name('compras.store');
+        Route::get('/compras/historial/costos', [CompraController::class, 'historialCostos'])->name('compras.historial-costos');
+        Route::get('/compras/{id}', [CompraController::class, 'show'])->name('compras.show');
     });
 });
+

@@ -44,15 +44,22 @@
             height: 100vh;
             background: var(--mac-surface);
             border-right: 1px solid var(--mac-border);
-            z-index: 1000;
+            z-index: 1050;
             overflow-y: auto;
-            transition: transform 0.3s ease;
+            -webkit-overflow-scrolling: touch;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .sidebar-brand {
-            padding: 1.5rem 1.25rem;
+            padding: 1.25rem 1.25rem;
             border-bottom: 1px solid var(--mac-border);
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-brand-text {
+            text-align: left;
         }
 
         .sidebar-brand h5 {
@@ -114,11 +121,14 @@
         .main-content {
             margin-left: var(--sidebar-width);
             min-height: 100vh;
+            width: calc(100% - var(--sidebar-width));
+            max-width: 100%;
+            transition: margin-left 0.3s ease, width 0.3s ease;
         }
 
         /* ── Top Navbar ── */
         .top-navbar {
-            background: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.90);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--mac-border);
@@ -135,6 +145,14 @@
             margin: 0;
             background: transparent;
             padding: 0;
+            flex-wrap: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .top-navbar .breadcrumb-item {
+            white-space: nowrap;
         }
 
         .top-navbar .breadcrumb-item a {
@@ -474,17 +492,28 @@
         /* ── Responsive ── */
         .sidebar-toggle {
             display: none;
+            min-height: 42px;
+            min-width: 42px;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            border-radius: 10px;
         }
 
         @media (max-width: 991.98px) {
             .sidebar {
                 transform: translateX(-100%);
+                box-shadow: 0 0 30px rgba(15,23,42,0.25);
+                width: 280px;
+                max-width: 85vw;
             }
             .sidebar.show {
                 transform: translateX(0);
             }
             .main-content {
                 margin-left: 0;
+                width: 100%;
             }
             .sidebar-toggle {
                 display: inline-flex;
@@ -493,12 +522,70 @@
                 display: none;
                 position: fixed;
                 inset: 0;
-                background: rgba(15,23,42,0.3);
-                z-index: 999;
+                background: rgba(15,23,42,0.55);
+                backdrop-filter: blur(3px);
+                -webkit-backdrop-filter: blur(3px);
+                z-index: 1040;
             }
             .sidebar-overlay.show {
                 display: block;
             }
+            .page-content {
+                padding: 1.25rem 1rem;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .page-content {
+                padding: 0.85rem 0.6rem;
+            }
+            .top-navbar {
+                padding: 0.5rem 0.75rem;
+            }
+            .top-navbar .breadcrumb {
+                max-width: 140px;
+                font-size: 0.78rem !important;
+            }
+            .user-dropdown .user-name {
+                display: none;
+            }
+            .user-dropdown .btn {
+                padding: 0.4rem 0.6rem;
+                min-height: 42px;
+                display: inline-flex;
+                align-items: center;
+            }
+            /* Responsive Modals (w-11/12 max-w-lg) */
+            .modal-dialog {
+                margin: 1rem auto !important;
+                width: 92% !important;
+                max-width: 500px !important;
+            }
+            .modal-content {
+                border-radius: 16px;
+            }
+            .modal-footer {
+                flex-direction: column-reverse;
+                gap: 0.5rem;
+            }
+            .modal-footer .btn {
+                width: 100%;
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* ── Tables & Overflow Container ── */
+        .overflow-x-auto, .table-responsive-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 14px;
+            background: #ffffff;
+            border: 1px solid rgba(226,232,240,0.80);
+            box-shadow: 0 1px 3px rgba(15,23,42,0.04);
         }
 
         /* ── Animations ── */
@@ -518,8 +605,13 @@
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <h5><i class="bi bi-nut me-1"></i> MULTIPARTES</h5>
-            <small>El Tuerca — Santa Cruz</small>
+            <div class="sidebar-brand-text">
+                <h5><i class="bi bi-nut me-1"></i> MULTIPARTES</h5>
+                <small>El Tuerca — Santa Cruz</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-light border-0 d-lg-none" onclick="toggleSidebar()" aria-label="Cerrar menú" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;">
+                <i class="bi bi-x-lg text-secondary"></i>
+            </button>
         </div>
 
         <div class="nav-section">Principal</div>
@@ -541,16 +633,45 @@
         @endif
 
         @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
-        <div class="nav-section">Catálogo</div>
+        <div class="nav-section">Catálogo y Vehículos</div>
         <a href="{{ route('categorias.index') }}" class="nav-link {{ request()->routeIs('categorias.*') ? 'active' : '' }}">
             <i class="bi bi-tags"></i> Categorías
         </a>
         <a href="{{ route('productos.index') }}" class="nav-link {{ request()->routeIs('productos.*') ? 'active' : '' }}">
-            <i class="bi bi-box-seam"></i> Productos
+            <i class="bi bi-box-seam"></i> Productos / Ubicaciones
         </a>
         <a href="{{ route('vehiculos.index') }}" class="nav-link {{ request()->routeIs('vehiculos.*') ? 'active' : '' }}">
             <i class="bi bi-truck"></i> Vehículos
         </a>
+
+        <div class="nav-section">Almacén e Inventario</div>
+        <a href="{{ route('inventario.alertas') }}" class="nav-link {{ request()->routeIs('inventario.alertas') ? 'active' : '' }}">
+            <i class="bi bi-exclamation-triangle"></i> Alertas de Stock
+        </a>
+        <a href="{{ route('inventario.ajustes') }}" class="nav-link {{ request()->routeIs('inventario.ajustes*') ? 'active' : '' }}">
+            <i class="bi bi-sliders"></i> Ajustes de Stock
+        </a>
+
+        <div class="nav-section">Compras y Proveedores</div>
+        @if(auth()->user()->rol->nombre_rol === 'Administrador')
+        <a href="{{ route('proveedores.index') }}" class="nav-link {{ request()->routeIs('proveedores.*') ? 'active' : '' }}">
+            <i class="bi bi-building"></i> Proveedores
+        </a>
+        @endif
+        <a href="{{ route('compras.create') }}" class="nav-link {{ request()->routeIs('compras.create') ? 'active' : '' }}">
+            <i class="bi bi-cart-plus"></i> Recepción de Mercadería
+        </a>
+        <a href="{{ route('compras.index') }}" class="nav-link {{ request()->routeIs('compras.index') || request()->routeIs('compras.show') ? 'active' : '' }}">
+            <i class="bi bi-receipt"></i> Historial de Compras
+        </a>
+        <a href="{{ route('compras.historial-costos') }}" class="nav-link {{ request()->routeIs('compras.historial-costos') ? 'active' : '' }}">
+            <i class="bi bi-graph-up-arrow"></i> Historial de Costos
+        </a>
+        @if(auth()->user()->rol->nombre_rol === 'Administrador')
+        <a href="{{ route('compras.cuentas-por-pagar') }}" class="nav-link {{ request()->routeIs('compras.cuentas-por-pagar') ? 'active' : '' }}">
+            <i class="bi bi-wallet2"></i> Cuentas por Pagar
+        </a>
+        @endif
         @endif
     </nav>
 
@@ -572,7 +693,7 @@
             <div class="user-dropdown dropdown">
                 <button class="btn dropdown-toggle" data-bs-toggle="dropdown">
                     <i class="bi bi-person-circle me-1"></i>
-                    {{ auth()->user()->nombre_completo }}
+                    <span class="user-name">{{ auth()->user()->nombre_completo }}</span>
                     <span class="badge ms-1" style="font-size: 0.65rem; background: rgba(0,122,255,0.10); color: #007AFF;">{{ auth()->user()->rol->nombre_rol }}</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">

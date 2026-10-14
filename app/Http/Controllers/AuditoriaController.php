@@ -42,7 +42,10 @@ class AuditoriaController extends Controller
             ->orderBy('modulo_afectado')
             ->pluck('modulo_afectado');
 
-        $acciones = ['INSERT', 'UPDATE', 'DELETE', 'ANULACION', 'LOGIN', 'LOGOUT'];
+        $acciones = BitacoraAuditoria::select('accion')
+            ->distinct()
+            ->orderBy('accion')
+            ->pluck('accion');
 
         return view('auditoria.index', compact('bitacoras', 'modulos', 'acciones'));
     }

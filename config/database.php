@@ -96,7 +96,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'sslmode' => env('DB_SSLMODE', 'require') . (str_contains(env('DB_HOST', ''), 'neon.tech') && !str_contains(env('DB_SSLMODE', ''), 'endpoint') ? ';options=endpoint=' . preg_replace('/-pooler$/', '', explode('.', env('DB_HOST'))[0]) : ''),
         ],
 
         'sqlsrv' => [

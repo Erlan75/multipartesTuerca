@@ -23,11 +23,11 @@ class PerfilController extends Controller
     {
         $request->validate([
             'password_actual'  => 'required|string',
-            'password_nueva'   => 'required|string|min:6|confirmed',
+            'password_nueva'   => 'required|string|min:8|confirmed',
         ], [
             'password_actual.required'  => 'Debe ingresar su contraseña actual.',
             'password_nueva.required'   => 'Debe ingresar la nueva contraseña.',
-            'password_nueva.min'        => 'La nueva contraseña debe tener al menos 6 caracteres.',
+            'password_nueva.min'        => 'La nueva contraseña debe tener al menos 8 caracteres.',
             'password_nueva.confirmed'  => 'Las contraseñas nuevas no coinciden.',
         ]);
 
@@ -42,10 +42,11 @@ class PerfilController extends Controller
         $usuario->save();
 
         Bitacora::registrar(
-            'Seguridad / Perfil',
-            'UPDATE',
+            'Perfil de Usuario',
+            'PASSWORD_CAMBIO_PERFIL',
             $usuario->id_usuario,
-            json_encode(['evento' => 'Cambio de contraseña', 'usuario' => $usuario->username])
+            'Cambio exitoso de contraseña desde el perfil para el usuario: ' . $usuario->username,
+            $usuario->id_usuario
         );
 
         return redirect()->route('perfil.password')

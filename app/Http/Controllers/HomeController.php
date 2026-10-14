@@ -18,6 +18,7 @@ class HomeController extends Controller
         $marcaSeleccionada = trim($request->input('marca', ''));
         $modeloSeleccionado = trim($request->input('modelo', ''));
         $categoriaId = $request->input('categoria_id');
+        $anioSeleccionado = $request->input('anio');
 
         // 1. Marcas con conteo de modelos y repuestos compatibles
         $marcas = Vehiculo::select('marca')
@@ -55,8 +56,8 @@ class HomeController extends Controller
             }
         }])->orderBy('nombre')->get();
 
-        // 4. Consulta de repuestos activos con filtros
-        $query = Producto::with(['categoria', 'vehiculos'])
+        // 4. Consulta de repuestos activos con filtros (CU12 y CU13)
+        $query = Producto::with(['categoria', 'vehiculos', 'codigosAlternativos'])
             ->where('estado', true);
 
         if (!empty($buscar)) {
@@ -65,7 +66,11 @@ class HomeController extends Controller
                 $q->whereRaw('LOWER(nombre_pieza) LIKE ?', [$searchTerm])
                   ->orWhereRaw('LOWER(codigo_oem) LIKE ?', [$searchTerm])
                   ->orWhereRaw('LOWER(codigo_interno) LIKE ?', [$searchTerm])
-                  ->orWhereRaw('LOWER(marca_fabricante) LIKE ?', [$searchTerm]);
+                  ->orWhereRaw('LOWER(marca_fabricante) LIKE ?', [$searchTerm])
+                  ->orWhereHas('codigosAlternativos', function ($ca) use ($searchTerm) {
+                      $ca->whereRaw('LOWER(codigo_referencia) LIKE ?', [$searchTerm])
+                         ->orWhereRaw('LOWER(marca_alternativa) LIKE ?', [$searchTerm]);
+                  });
             });
         }
 
@@ -78,6 +83,13 @@ class HomeController extends Controller
         if (!empty($modeloSeleccionado)) {
             $query->whereHas('vehiculos', function ($q) use ($modeloSeleccionado) {
                 $q->where('modelo', $modeloSeleccionado);
+            });
+        }
+
+        if (!empty($anioSeleccionado)) {
+            $query->whereHas('vehiculos', function ($q) use ($anioSeleccionado) {
+                $q->where('anio_inicio', '<=', $anioSeleccionado)
+                  ->where('anio_fin', '>=', $anioSeleccionado);
             });
         }
 
