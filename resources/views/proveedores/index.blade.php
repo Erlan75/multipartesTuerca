@@ -149,6 +149,7 @@
                                 </a>
                                 <form action="{{ route('proveedores.toggle-status', $prov->id_proveedor) }}" method="POST" onsubmit="return confirm('¿Está seguro de {{ $prov->estado ? 'desactivar' : 'reactivar' }} al proveedor {{ addslashes($prov->razon_social) }}?');" style="display:inline;">
                                     @csrf
+                                    @method('PATCH')
                                     <button type="submit" class="btn btn-sm {{ $prov->estado ? 'btn-outline-danger' : 'btn-outline-success' }}" style="border-radius:8px;padding:0.25rem 0.5rem;" title="{{ $prov->estado ? 'Desactivar proveedor' : 'Reactivar proveedor' }}">
                                         <i class="bi {{ $prov->estado ? 'bi-slash-circle' : 'bi-check2' }}"></i>
                                     </button>

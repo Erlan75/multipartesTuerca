@@ -73,7 +73,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/proveedores', [ProveedorController::class, 'store'])->name('proveedores.store');
         Route::get('/proveedores/{id}/editar', [ProveedorController::class, 'edit'])->name('proveedores.edit');
         Route::put('/proveedores/{id}', [ProveedorController::class, 'update'])->name('proveedores.update');
-        Route::patch('/proveedores/{id}/toggle', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle');
+        Route::match(['post', 'patch'], '/proveedores/{id}/toggle-status', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle-status');
+        Route::match(['post', 'patch'], '/proveedores/{id}/toggle', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle');
 
         // ── Cuentas por Pagar a Proveedores y Liquidación a Crédito (CU22) ──
         Route::get('/compras/cuentas/por-pagar', [CompraController::class, 'cuentasPorPagar'])->name('compras.cuentas-por-pagar');
