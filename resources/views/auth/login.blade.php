@@ -237,6 +237,13 @@
                 </div>
             @endif
 
+            @if(session('warning'))
+                <div class="alert d-flex align-items-center rounded-3 p-3 mb-3 border-0" style="background:#FFFBEB; color:#92400E; font-size:0.85rem;">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning flex-shrink-0"></i>
+                    <span>{{ session('warning') }}</span>
+                </div>
+            @endif
+
             @if($errors->has('bloqueado'))
                 <div class="alert-bloqueado-mac bg-red-50 border-red-200 text-red-700 rounded-xl p-4">
                     <div class="d-flex align-items-start gap-3">

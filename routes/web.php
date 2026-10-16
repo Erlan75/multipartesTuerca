@@ -36,7 +36,7 @@ Route::post('/restablecer-password', [AuthController::class, 'resetPassword'])->
 Route::middleware('auth')->group(function () {
 
     // ── Logout ──
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
 
     // ── Dashboard ──
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
