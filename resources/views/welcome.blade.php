@@ -911,13 +911,9 @@
                         </div>
                     @endif
                 @else
-                    <a href="{{ route('login') }}" class="btn-mac-outline">
+                    <a href="{{ route('login') }}" class="btn-mac-primary">
                         <i class="bi bi-box-arrow-in-right"></i>
-                        <span>Ingreso Personal / Login</span>
-                    </a>
-                    <a href="{{ route('register') }}" class="btn-mac-primary">
-                        <i class="bi bi-person-plus-fill"></i>
-                        <span>Crear Cuenta</span>
+                        <span>Iniciar Sesión</span>
                     </a>
                 @endauth
             </div>
