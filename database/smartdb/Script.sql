@@ -48,6 +48,10 @@ CREATE TABLE roles (
 );
 -- Evita roles duplicados sin importar mayúsculas/minúsculas
 CREATE UNIQUE INDEX uq_rol_nombre_lower ON roles (lower(trim(nombre_rol)));
+INSERT INTO roles (id_rol, nombre_rol, descripcion) 
+VALUES (5, 'Cliente', 'Cliente web registrado para cotizaciones y compras') 
+ON CONFLICT (id_rol) DO NOTHING;
+SELECT setval('roles_id_rol_seq', (SELECT COALESCE(MAX(id_rol), 1) FROM roles), true);
 
 CREATE TABLE usuarios (
     id_usuario SERIAL PRIMARY KEY,
@@ -374,7 +378,7 @@ CREATE TABLE bitacoras_auditorias (
         'INSERT', 'UPDATE', 'DELETE', 'ANULACION', 'LOGIN', 'LOGOUT',
         'LOGIN_FALLIDO', 'CUENTA_BLOQUEADA', 'LOGIN_BLOQUEADO',
         'PASSWORD_RESET_SOLICITUD', 'PASSWORD_RESET_EXITOSO', 'PASSWORD_CAMBIO_PERFIL',
-        'PASSWORD_MODIFICADO'
+        'PASSWORD_MODIFICADO', 'REGISTRO_CLIENTE'
     ))
 );
 CREATE INDEX idx_bitacora_fecha ON bitacoras_auditorias (fecha_hora);

@@ -15,6 +15,11 @@ class DashboardController extends Controller
      */
     public function index()
     {
+        // Blindaje contra acceso de clientes al panel administrativo
+        if (auth()->check() && (auth()->user()->id_rol === 5 || auth()->user()->rol?->nombre_rol === 'Cliente')) {
+            return redirect()->route('home')->with('warning', 'Área exclusiva para personal administrativo.');
+        }
+
         // ── Últimos productos registrados (simulan movimientos recientes) ──
         $productosRecientes = Producto::with(['categoria', 'compatibilidades.vehiculo'])
             ->where('estado', true)

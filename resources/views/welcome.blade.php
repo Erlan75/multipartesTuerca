@@ -875,19 +875,77 @@
             <!-- User / Login Action -->
             <div class="d-flex align-items-center gap-2">
                 @auth
-                    <a href="{{ route('dashboard') }}" class="btn-mac-primary">
-                        <i class="bi bi-speedometer2"></i>
-                        <span>Panel del Sistema</span>
-                    </a>
+                    @if(auth()->user()->id_rol === 5)
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="d-none d-sm-inline fw-semibold text-dark" style="font-size: 0.88rem;">
+                                <i class="bi bi-person-circle text-primary me-1"></i>Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}
+                            </span>
+                            <a href="#catalogo" class="btn-mac-outline btn-sm">
+                                <i class="bi bi-receipt"></i>
+                                <span>Mis Cotizaciones</span>
+                            </a>
+                            <form action="{{ route('logout') }}" method="POST" class="d-inline mb-0">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius: 10px; padding: 7px 12px; font-size: 0.82rem; font-weight: 600;">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    <span class="d-none d-md-inline ms-1">Cerrar Sesión</span>
+                                </button>
+                            </form>
+                        </div>
+                    @else
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="d-none d-md-inline fw-semibold text-dark" style="font-size: 0.88rem;">
+                                <i class="bi bi-person-badge text-primary me-1"></i>Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }} 
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size: 0.7rem;">{{ auth()->user()->rol->nombre_rol ?? 'Personal' }}</span>
+                            </span>
+                            <a href="{{ route('dashboard') }}" class="btn-mac-primary">
+                                <i class="bi bi-speedometer2"></i>
+                                <span>Panel Administrativo</span>
+                            </a>
+                            <form action="{{ route('logout') }}" method="POST" class="d-inline mb-0">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius: 10px; padding: 7px 12px; font-size: 0.82rem; font-weight: 600;" title="Cerrar Sesión">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                </button>
+                            </form>
+                        </div>
+                    @endif
                 @else
-                    <a href="{{ route('login') }}" class="btn-mac-primary">
+                    <a href="{{ route('login') }}" class="btn-mac-outline">
                         <i class="bi bi-box-arrow-in-right"></i>
                         <span>Ingreso Personal / Login</span>
+                    </a>
+                    <a href="{{ route('register') }}" class="btn-mac-primary">
+                        <i class="bi bi-person-plus-fill"></i>
+                        <span>Crear Cuenta</span>
                     </a>
                 @endauth
             </div>
         </div>
     </header>
+
+    @if(session('success'))
+        <div class="container mt-3">
+            <div class="alert alert-success d-flex align-items-center justify-content-between rounded-4 shadow-sm border-0 p-3" style="background:#ECFDF5; color:#065F46;">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill fs-5 text-success me-2"></i>
+                    <span>{{ session('success') }}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+    @endif
+    @if(session('warning'))
+        <div class="container mt-3">
+            <div class="alert alert-warning d-flex align-items-center justify-content-between rounded-4 shadow-sm border-0 p-3" style="background:#FFFBEB; color:#92400E;">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 text-warning me-2"></i>
+                    <span>{{ session('warning') }}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+    @endif
 
     <!-- ── Hero Section & Commercial Search ── -->
     <section class="hero-section">

@@ -23,6 +23,8 @@ use App\Http\Controllers\CompraController;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+Route::get('/registro', [AuthController::class, 'showRegisterForm'])->name('register');
+Route::post('/registro', [AuthController::class, 'register'])->name('register.submit');
 
 // ── Recuperación de Contraseña (Público) ──
 Route::get('/recuperar-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
@@ -75,26 +77,36 @@ Route::middleware('auth')->group(function () {
         Route::put('/proveedores/{id}', [ProveedorController::class, 'update'])->name('proveedores.update');
         Route::match(['post', 'patch'], '/proveedores/{id}/toggle-status', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle-status');
         Route::match(['post', 'patch'], '/proveedores/{id}/toggle', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle');
+    });
 
-        // ── Cuentas por Pagar a Proveedores y Liquidación a Crédito (CU22) ──
+    // ═════════════════════════════════════════════════════════════
+    // MÓDULO FINANCIERO: CUENTAS POR PAGAR (Administrador + Cajero)
+    // ═════════════════════════════════════════════════════════════
+    Route::middleware('role:Administrador,Cajero')->group(function () {
         Route::get('/compras/cuentas/por-pagar', [CompraController::class, 'cuentasPorPagar'])->name('compras.cuentas-por-pagar');
         Route::post('/compras/{id}/liquidar-pago', [CompraController::class, 'liquidarPago'])->name('compras.liquidar-pago');
     });
 
     // ═════════════════════════════════════════════════════════════
-    // MÓDULO 2 Y 3: CATÁLOGO, ALMACÉN, INVENTARIO Y COMPRAS
+    // CATÁLOGO DE REPUESTOS Y CONSULTA (Admin + Bodeguero + Vendedor)
+    // ═════════════════════════════════════════════════════════════
+    Route::middleware('role:Administrador,Bodeguero,Vendedor')->group(function () {
+        Route::get('/categorias', [CategoriaController::class, 'index'])->name('categorias.index');
+        Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // MÓDULO 2 Y 3: ALMACÉN, INVENTARIO Y GESTIÓN DE COMPRAS
     // (Administrador + Bodeguero)
     // ═════════════════════════════════════════════════════════════
     Route::middleware('role:Administrador,Bodeguero')->group(function () {
 
-        // ── Categorías (CU07) ──
-        Route::get('/categorias', [CategoriaController::class, 'index'])->name('categorias.index');
+        // ── Categorías (gestión) ──
         Route::post('/categorias', [CategoriaController::class, 'store'])->name('categorias.store');
         Route::put('/categorias/{id}', [CategoriaController::class, 'update'])->name('categorias.update');
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy'])->name('categorias.destroy');
 
-        // ── Productos y Búsqueda Técnica (CU08, CU12, CU13, CU14, CU15) ──
-        Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+        // ── Productos (gestión y altas) ──
         Route::get('/productos/crear', [ProductoController::class, 'create'])->name('productos.create');
         Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
         Route::get('/productos/{id}/editar', [ProductoController::class, 'edit'])->name('productos.edit');

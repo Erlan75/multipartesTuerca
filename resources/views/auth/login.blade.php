@@ -298,7 +298,24 @@
                     <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
                 </button>
             </form>
+
+            <div class="text-center mt-4 pt-3 border-top" style="border-color: rgba(226, 232, 240, 0.8) !important;">
+                <span class="text-muted" style="font-size: 0.85rem;">¿No tienes cuenta?</span>
+                <a href="{{ route('register') }}" class="ms-1 fw-semibold text-decoration-none" style="color: #007AFF; font-size: 0.85rem;">
+                    Regístrate aquí
+                </a>
+            </div>
         </div>
     </div>
+
+    <script>
+        // Manejador de historial: al presionar 'Atrás' desde login, salta al catálogo público raíz
+        if (window.history && window.history.pushState) {
+            window.history.pushState(null, "", window.location.href);
+            window.onpopstate = function() {
+                window.location.replace("{{ route('home') }}");
+            };
+        }
+    </script>
 </body>
 </html>

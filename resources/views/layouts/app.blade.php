@@ -619,6 +619,7 @@
             <i class="bi bi-speedometer2"></i> Dashboard
         </a>
 
+        {{-- 1. SEGURIDAD Y ACCESO (Solo Administrador - Rol 1) --}}
         @if(auth()->user()->rol->nombre_rol === 'Administrador')
         <div class="nav-section">Seguridad y Acceso</div>
         <a href="{{ route('usuarios.index') }}" class="nav-link {{ request()->routeIs('usuarios.*') ? 'active' : '' }}">
@@ -632,18 +633,24 @@
         </a>
         @endif
 
-        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
-        <div class="nav-section">Catálogo y Vehículos</div>
+        {{-- 2. CATÁLOGO DE REPUESTOS (Administrador, Bodeguero, Vendedor - Roles 1, 2, 3) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero', 'Vendedor']))
+        <div class="nav-section">Catálogo de Repuestos</div>
+        <a href="{{ route('productos.index') }}" class="nav-link {{ request()->routeIs('productos.*') ? 'active' : '' }}">
+            <i class="bi bi-box-seam"></i> Catálogo / Ubicaciones
+        </a>
         <a href="{{ route('categorias.index') }}" class="nav-link {{ request()->routeIs('categorias.*') ? 'active' : '' }}">
             <i class="bi bi-tags"></i> Categorías
         </a>
-        <a href="{{ route('productos.index') }}" class="nav-link {{ request()->routeIs('productos.*') ? 'active' : '' }}">
-            <i class="bi bi-box-seam"></i> Productos / Ubicaciones
-        </a>
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
         <a href="{{ route('vehiculos.index') }}" class="nav-link {{ request()->routeIs('vehiculos.*') ? 'active' : '' }}">
-            <i class="bi bi-truck"></i> Vehículos
+            <i class="bi bi-truck"></i> Catálogo Vehicular
         </a>
+        @endif
+        @endif
 
+        {{-- 3. ALMACÉN E INVENTARIO (Administrador, Bodeguero - Roles 1, 2) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
         <div class="nav-section">Almacén e Inventario</div>
         <a href="{{ route('inventario.alertas') }}" class="nav-link {{ request()->routeIs('inventario.alertas') ? 'active' : '' }}">
             <i class="bi bi-exclamation-triangle"></i> Alertas de Stock
@@ -651,8 +658,11 @@
         <a href="{{ route('inventario.ajustes') }}" class="nav-link {{ request()->routeIs('inventario.ajustes*') ? 'active' : '' }}">
             <i class="bi bi-sliders"></i> Ajustes de Stock
         </a>
+        @endif
 
-        <div class="nav-section">Compras y Proveedores</div>
+        {{-- 4. COMPRAS Y PROVEEDORES (Administrador, Bodeguero - Roles 1, 2) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
+        <div class="nav-section">Compras y Recepción</div>
         @if(auth()->user()->rol->nombre_rol === 'Administrador')
         <a href="{{ route('proveedores.index') }}" class="nav-link {{ request()->routeIs('proveedores.*') ? 'active' : '' }}">
             <i class="bi bi-building"></i> Proveedores
@@ -667,12 +677,21 @@
         <a href="{{ route('compras.historial-costos') }}" class="nav-link {{ request()->routeIs('compras.historial-costos') ? 'active' : '' }}">
             <i class="bi bi-graph-up-arrow"></i> Historial de Costos
         </a>
-        @if(auth()->user()->rol->nombre_rol === 'Administrador')
+        @endif
+
+        {{-- 5. CAJA Y FINANZAS (Administrador, Cajero - Roles 1, 4) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero']))
+        <div class="nav-section">Caja y Finanzas</div>
         <a href="{{ route('compras.cuentas-por-pagar') }}" class="nav-link {{ request()->routeIs('compras.cuentas-por-pagar') ? 'active' : '' }}">
             <i class="bi bi-wallet2"></i> Cuentas por Pagar
         </a>
         @endif
-        @endif
+
+        {{-- 6. ENLACE AL CATÁLOGO PÚBLICO --}}
+        <div class="nav-section">Vitrina Comercial</div>
+        <a href="{{ route('home') }}" target="_blank" class="nav-link">
+            <i class="bi bi-shop"></i> Catálogo Público <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.75rem;"></i>
+        </a>
     </nav>
 
     {{-- Main Content --}}

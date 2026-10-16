@@ -751,8 +751,8 @@ DECLARE
     v_fecha_compra DATE;
     v_proveedor VARCHAR(120);
 BEGIN
-    -- 1. Solo Administrador activo
-    PERFORM fn_validar_usuario_autorizado(p_id_usuario, ARRAY['Administrador']);
+    -- 1. Administrador o Cajero activo
+    PERFORM fn_validar_usuario_autorizado(p_id_usuario, ARRAY['Administrador', 'Cajero']);
 
     -- 2. Bloqueo pesimista de la orden de compra
     SELECT nc.tipo_pago, nc.estado_pago, nc.numero_factura_nota, nc.monto_total, nc.fecha_compra, pr.razon_social

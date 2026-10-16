@@ -26,13 +26,17 @@ TRUNCATE TABLE
 RESTART IDENTITY CASCADE;
 
 -- -----------------------------------------------------------------------------
--- 1. ROLES (IDs: 1 al 4)
+-- 1. ROLES (IDs: 1 al 5)
 -- -----------------------------------------------------------------------------
-INSERT INTO roles (nombre_rol, descripcion) VALUES
-('Administrador', 'Control total administrativo, auditoría, reportes y configuración'),
-('Bodeguero', 'Recepción de mercadería, gestión de compras, estanterías y ajustes'),
-('Vendedor', 'Atención en mostrador, emisión de cotizaciones y notas de venta en POS'),
-('Cajero', 'Apertura y cierre de turnos, arqueo y cobro de transacciones');
+INSERT INTO roles (id_rol, nombre_rol, descripcion) VALUES
+(1, 'Administrador', 'Control total administrativo, auditoría, reportes y configuración'),
+(2, 'Bodeguero', 'Recepción de mercadería, gestión de compras, estanterías y ajustes'),
+(3, 'Vendedor', 'Atención en mostrador, emisión de cotizaciones y notas de venta en POS'),
+(4, 'Cajero', 'Apertura y cierre de turnos, arqueo y cobro de transacciones'),
+(5, 'Cliente', 'Cliente web registrado para cotizaciones y compras')
+ON CONFLICT (id_rol) DO NOTHING;
+
+SELECT setval('roles_id_rol_seq', (SELECT MAX(id_rol) FROM roles), true);
 
 -- -----------------------------------------------------------------------------
 -- 2. USUARIOS (IDs: 1 al 5 - INTEGRANTES DEL PROYECTO CON CLAVE 'Cher_4mi')

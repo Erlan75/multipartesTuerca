@@ -19,9 +19,80 @@ class AuthController extends Controller
     public function showLoginForm()
     {
         if (Auth::check()) {
-            return redirect()->route('dashboard');
+            return Auth::user()->id_rol === 5
+                ? redirect()->route('home')
+                : redirect()->route('dashboard');
         }
         return view('auth.login');
+    }
+
+    /**
+     * Mostrar formulario público de registro de clientes.
+     */
+    public function showRegisterForm()
+    {
+        if (Auth::check()) {
+            return Auth::user()->id_rol === 5
+                ? redirect()->route('home')
+                : redirect()->route('dashboard');
+        }
+        return view('auth.register');
+    }
+
+    /**
+     * Procesar auto-registro público de clientes (Rol 5).
+     */
+    public function register(Request $request)
+    {
+        $request->validate([
+            'nombre_completo' => 'required|string|min:3|max:120',
+            'telefono'        => 'required|string|max:20',
+            'correo'          => 'required|email|max:100|unique:usuarios,correo',
+            'username'        => 'required|string|min:4|max:50|unique:usuarios,username',
+            'password'        => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*?&#_.-]/',
+            ],
+        ], [
+            'nombre_completo.min' => 'El nombre debe tener al menos 3 caracteres.',
+            'telefono.required'   => 'El teléfono o WhatsApp es obligatorio para coordinar proformas y despachos.',
+            'username.min'        => 'El usuario debe tener al menos 4 caracteres.',
+            'username.unique'     => 'Este nombre de usuario ya está en uso.',
+            'correo.unique'       => 'Este correo electrónico ya se encuentra registrado.',
+            'password.required'   => 'La contraseña es obligatoria.',
+            'password.min'        => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.confirmed'  => 'Las contraseñas no coinciden.',
+            'password.regex'      => 'La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&#_.-).',
+        ]);
+
+        $usuario = Usuario::create([
+            'id_rol'          => 5, // Rol Cliente
+            'nombre_completo' => trim($request->nombre_completo),
+            'username'        => trim($request->username),
+            'correo'          => trim($request->correo),
+            'telefono'        => trim($request->telefono),
+            'password_hash'   => Hash::make($request->password),
+            'estado'          => true,
+        ]);
+
+        Auth::login($usuario);
+
+        Bitacora::registrar(
+            'Seguridad / Registro Web',
+            'REGISTRO_CLIENTE',
+            $usuario->id_usuario,
+            'Auto-registro de cliente web: ' . $usuario->username . ' (' . $usuario->correo . ')',
+            $usuario->id_usuario
+        );
+
+        return redirect()->route('home')
+            ->with('success', '¡Bienvenido a Multipartes El Tuerca, ' . $usuario->nombre_completo . '! Tu cuenta de cliente ha sido creada exitosamente.');
     }
 
     /**
@@ -87,6 +158,11 @@ class AuthController extends Controller
                 'Inicio de sesión exitoso para el usuario: ' . Auth::user()->username,
                 Auth::id()
             );
+
+            // Redirección segmentada por rol: Cliente (5) va al catálogo público, Personal interno (1-4) al Dashboard
+            if (Auth::user()->id_rol === 5) {
+                return redirect()->intended(route('home'));
+            }
 
             return redirect()->intended(route('dashboard'));
         }
