@@ -17,10 +17,7 @@
             Supervisión continua de repuestos con existencia por debajo de stock mínimo o seguridad para prevenir quiebres de inventario.
         </p>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{{ route('compras.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.2rem;font-size:0.85rem;">
-            <i class="bi bi-cart-plus me-1"></i>Generar Compra
-        </a>
+    <div>
         <a href="{{ route('inventario.ajustes') }}" class="btn btn-outline-tuerca" style="padding:0.55rem 1.2rem;font-size:0.85rem;">
             <i class="bi bi-arrow-left-right me-1"></i>Ajustes de Inventario
         </a>

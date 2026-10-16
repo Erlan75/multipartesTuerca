@@ -17,10 +17,7 @@
             Control y liquidación de facturas de mercadería ingresadas bajo modalidad de crédito mediante SP Smart-DB blindado.
         </p>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{{ route('compras.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
-            <i class="bi bi-plus-lg me-1"></i>Nueva Compra
-        </a>
+    <div>
         <a href="{{ route('compras.index') }}" class="btn btn-outline-tuerca" style="padding:0.55rem 1.2rem;font-size:0.85rem;">
             <i class="bi bi-journal-text me-1"></i>Todas las Compras
         </a>
@@ -134,7 +131,7 @@
             <tbody>
                 @forelse($cuentasPendientes as $cp)
                     @php
-                        $dias = \Carbon\Carbon::parse($cp->fecha_compra)->diffInDays(now());
+                        $dias = intval(\Carbon\Carbon::parse($cp->fecha_compra)->diffInDays(now()));
                     @endphp
                     <tr style="border-bottom:1px solid #F1F5F9;">
                         <td style="padding:0.75rem 1rem;white-space:nowrap;">
