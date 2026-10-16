@@ -11,7 +11,7 @@
         <div class="card-light">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h5 class="mb-0"><i class="bi bi-shield-lock me-2 text-primary"></i>Cambiar Contraseña</h5>
-                <span class="badge" style="background: rgba(0,122,255,0.08); color: #007AFF; font-size: 0.75rem;">CU05</span>
+                <span class="badge" style="background: rgba(0,122,255,0.08); color: #007AFF; font-size: 0.75rem;"><i class="bi bi-shield-check me-1"></i>Seguridad</span>
             </div>
             <div class="card-body p-4">
                 <div class="d-flex align-items-center gap-3 p-3 mb-4 rounded-3" style="background: #F8FAFC; border: 1px solid #E2E8F0;">

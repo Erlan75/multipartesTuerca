@@ -12,7 +12,7 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-                    <i class="bi bi-building-add me-2" style="color:#007AFF;"></i>Registrar Proveedor / Distribuidor (CU19)
+                    <i class="bi bi-building-add me-2" style="color:#007AFF;"></i>Registrar Proveedor / Distribuidor
                 </h4>
                 <p style="color:#64748B;font-size:0.85rem;margin:0;">
                     Complete la información comercial para habilitar recepciones de compra y créditos.

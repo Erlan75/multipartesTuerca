@@ -3,7 +3,7 @@
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('productos.index') }}">Inventario</a></li>
-    <li class="breadcrumb-item active">Alertas de Stock (CU16)</li>
+    <li class="breadcrumb-item active">Alertas de Stock</li>
 @endsection
 
 @section('content')
@@ -11,7 +11,7 @@
 <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
     <div>
         <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-            <i class="bi bi-shield-exclamation me-2" style="color:#FF3B30;"></i>Monitoreo y Alertas de Stock Crítico (CU16)
+            <i class="bi bi-shield-exclamation me-2" style="color:#FF3B30;"></i>Monitoreo y Alertas de Stock Crítico
         </h4>
         <p style="color:#64748B;font-size:0.85rem;margin:0;">
             Supervisión continua de repuestos con existencia por debajo de stock mínimo o seguridad para prevenir quiebres de inventario.

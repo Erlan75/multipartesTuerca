@@ -3,7 +3,7 @@
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('compras.index') }}">Compras</a></li>
-    <li class="breadcrumb-item active">Cuentas por Pagar (CU22)</li>
+    <li class="breadcrumb-item active">Cuentas por Pagar</li>
 @endsection
 
 @section('content')
@@ -11,7 +11,7 @@
 <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
     <div>
         <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-            <i class="bi bi-wallet2 me-2" style="color:#007AFF;"></i>Cuentas por Pagar a Distribuidores Mayoristas (CU22)
+            <i class="bi bi-wallet2 me-2" style="color:#007AFF;"></i>Cuentas por Pagar a Distribuidores Mayoristas
         </h4>
         <p style="color:#64748B;font-size:0.85rem;margin:0;">
             Control y liquidación de facturas de mercadería ingresadas bajo modalidad de crédito mediante SP Smart-DB blindado.
@@ -128,7 +128,7 @@
                     <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;text-align:center;border-bottom:2px solid #E2E8F0;">Antigüedad</th>
                     <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;border-bottom:2px solid #E2E8F0;">Condición Pactada</th>
                     <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;text-align:right;border-bottom:2px solid #E2E8F0;">Monto Pendiente (Bs.)</th>
-                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;text-align:center;border-bottom:2px solid #E2E8F0;">Acción de Pago (CU22)</th>
+                    <th style="padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;color:#64748B;text-transform:uppercase;text-align:center;border-bottom:2px solid #E2E8F0;">Acción de Pago</th>
                 </tr>
             </thead>
             <tbody>
@@ -216,7 +216,7 @@
     @endif
 </div>
 
-{{-- Modal Confirmación de Liquidación de Pago (CU22) --}}
+{{-- Modal Confirmación de Liquidación de Pago --}}
 <div class="modal fade" id="modalConfirmarPago" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered w-11/12 max-w-lg mx-auto" style="max-width: 500px;">
         <div class="modal-content" style="border-radius:18px;border:1px solid #E2E8F0;box-shadow:0 20px 45px rgba(15,23,42,0.15);">
@@ -224,7 +224,7 @@
                 @csrf
                 <div class="modal-header py-3 px-3" style="border-bottom:1px solid #F1F5F9;">
                     <h6 class="modal-title fs-6" style="font-weight:700;color:#1E293B;">
-                        <i class="bi bi-wallet2 me-2 text-success"></i>Confirmar Liquidación de Pago (CU22)
+                        <i class="bi bi-wallet2 me-2 text-success"></i>Confirmar Liquidación de Pago
                     </h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" style="min-height:36px;min-width:36px;"></button>
                 </div>

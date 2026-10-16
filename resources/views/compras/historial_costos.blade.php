@@ -3,7 +3,7 @@
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('compras.index') }}">Compras</a></li>
-    <li class="breadcrumb-item active">Historial de Costos (CU21)</li>
+    <li class="breadcrumb-item active">Historial de Costos</li>
 @endsection
 
 @section('content')
@@ -11,7 +11,7 @@
 <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
     <div>
         <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-            <i class="bi bi-graph-up me-2" style="color:#007AFF;"></i>Historial y Análisis de Costos de Adquisición (CU21)
+            <i class="bi bi-graph-up me-2" style="color:#007AFF;"></i>Historial y Análisis de Costos de Adquisición
         </h4>
         <p style="color:#64748B;font-size:0.85rem;margin:0;">
             Consulta cronológica de precios de compra directamente desde el histórico de recepciones por repuesto para auditoría y fijación de márgenes.

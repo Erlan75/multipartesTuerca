@@ -2,7 +2,7 @@
 @section('title', 'Proveedores — Multipartes El Tuerca')
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
-    <li class="breadcrumb-item active">Proveedores (CU19)</li>
+    <li class="breadcrumb-item active">Proveedores</li>
 @endsection
 
 @section('content')
@@ -10,7 +10,7 @@
 <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
     <div>
         <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-            <i class="bi bi-truck-flatbed me-2" style="color:#007AFF;"></i>Proveedores e Importadores Mayoristas (CU19)
+            <i class="bi bi-truck-flatbed me-2" style="color:#007AFF;"></i>Proveedores e Importadores Mayoristas
         </h4>
         <p style="color:#64748B;font-size:0.85rem;margin:0;">
             Gestión comercial de empresas distribuidoras de repuestos, condiciones de pago y control de estado.

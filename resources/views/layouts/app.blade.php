@@ -663,11 +663,9 @@
         {{-- 4. COMPRAS Y PROVEEDORES (Administrador, Bodeguero - Roles 1, 2) --}}
         @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
         <div class="nav-section">Compras y Recepción</div>
-        @if(auth()->user()->rol->nombre_rol === 'Administrador')
         <a href="{{ route('proveedores.index') }}" class="nav-link {{ request()->routeIs('proveedores.*') ? 'active' : '' }}">
             <i class="bi bi-building"></i> Proveedores
         </a>
-        @endif
         <a href="{{ route('compras.create') }}" class="nav-link {{ request()->routeIs('compras.create') ? 'active' : '' }}">
             <i class="bi bi-cart-plus"></i> Recepción de Mercadería
         </a>
@@ -679,8 +677,8 @@
         </a>
         @endif
 
-        {{-- 5. CAJA Y FINANZAS (Administrador, Cajero - Roles 1, 4) --}}
-        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero']))
+        {{-- 5. CAJA Y FINANZAS (Administrador, Cajero, Bodeguero) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero', 'Bodeguero']))
         <div class="nav-section">Caja y Finanzas</div>
         <a href="{{ route('compras.cuentas-por-pagar') }}" class="nav-link {{ request()->routeIs('compras.cuentas-por-pagar') ? 'active' : '' }}">
             <i class="bi bi-wallet2"></i> Cuentas por Pagar

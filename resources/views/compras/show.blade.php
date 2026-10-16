@@ -97,7 +97,7 @@
                         <form action="{{ route('compras.liquidar-pago', $compra->id_compra) }}" method="POST" onsubmit="return confirm('¿Confirmar liquidación total de la compra #{{ $compra->id_compra }} por Bs. {{ number_format($compra->monto_total, 2) }}?');">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-success" style="border-radius:8px;padding:0.4rem 1rem;font-size:0.82rem;">
-                                <i class="bi bi-cash-stack me-1"></i>Liquidar Deuda Ahora (CU22)
+                                <i class="bi bi-cash-stack me-1"></i>Liquidar Deuda Ahora
                             </button>
                         </form>
                     </div>

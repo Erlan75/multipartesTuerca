@@ -52,7 +52,7 @@ Route::middleware('auth')->group(function () {
     // ═════════════════════════════════════════════════════════════
     Route::middleware('role:Administrador')->group(function () {
 
-        // ── Gestión de Usuarios (CU03) ──
+        // ── Gestión de Usuarios ──
         Route::get('/usuarios', [UsuarioController::class, 'index'])->name('usuarios.index');
         Route::get('/usuarios/crear', [UsuarioController::class, 'create'])->name('usuarios.create');
         Route::post('/usuarios', [UsuarioController::class, 'store'])->name('usuarios.store');
@@ -60,30 +60,23 @@ Route::middleware('auth')->group(function () {
         Route::put('/usuarios/{id}', [UsuarioController::class, 'update'])->name('usuarios.update');
         Route::patch('/usuarios/{id}/toggle', [UsuarioController::class, 'toggleStatus'])->name('usuarios.toggle');
 
-        // ── Gestión de Roles (CU04) ──
+        // ── Gestión de Roles ──
         Route::get('/roles', [RolController::class, 'index'])->name('roles.index');
         Route::post('/roles', [RolController::class, 'store'])->name('roles.store');
         Route::put('/roles/{id}', [RolController::class, 'update'])->name('roles.update');
         Route::delete('/roles/{id}', [RolController::class, 'destroy'])->name('roles.destroy');
 
-        // ── Bitácora de Auditoría (CU06) ──
+        // ── Bitácora de Auditoría ──
         Route::get('/auditoria', [AuditoriaController::class, 'index'])->name('auditoria.index');
-
-        // ── Gestión de Proveedores (CU19) ──
-        Route::get('/proveedores', [ProveedorController::class, 'index'])->name('proveedores.index');
-        Route::get('/proveedores/crear', [ProveedorController::class, 'create'])->name('proveedores.create');
-        Route::post('/proveedores', [ProveedorController::class, 'store'])->name('proveedores.store');
-        Route::get('/proveedores/{id}/editar', [ProveedorController::class, 'edit'])->name('proveedores.edit');
-        Route::put('/proveedores/{id}', [ProveedorController::class, 'update'])->name('proveedores.update');
-        Route::match(['post', 'patch'], '/proveedores/{id}/toggle-status', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle-status');
-        Route::match(['post', 'patch'], '/proveedores/{id}/toggle', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle');
     });
 
     // ═════════════════════════════════════════════════════════════
-    // MÓDULO FINANCIERO: CUENTAS POR PAGAR (Administrador + Cajero)
+    // MÓDULO FINANCIERO: CUENTAS POR PAGAR (Administrador + Cajero + Bodeguero)
     // ═════════════════════════════════════════════════════════════
-    Route::middleware('role:Administrador,Cajero')->group(function () {
+    Route::middleware('role:Administrador,Cajero,Bodeguero')->group(function () {
         Route::get('/compras/cuentas/por-pagar', [CompraController::class, 'cuentasPorPagar'])->name('compras.cuentas-por-pagar');
+        Route::get('/cuentas-por-pagar', [CompraController::class, 'cuentasPorPagar'])->name('cuentas-por-pagar.alias');
+        Route::get('/compras/pagos', [CompraController::class, 'cuentasPorPagar'])->name('compras.pagos.alias');
         Route::post('/compras/{id}/liquidar-pago', [CompraController::class, 'liquidarPago'])->name('compras.liquidar-pago');
     });
 
@@ -93,13 +86,24 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:Administrador,Bodeguero,Vendedor')->group(function () {
         Route::get('/categorias', [CategoriaController::class, 'index'])->name('categorias.index');
         Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+        Route::get('/repuestos', [ProductoController::class, 'index'])->name('repuestos.index');
+        Route::get('/almacen/ubicaciones', [ProductoController::class, 'index'])->name('almacen.ubicaciones.alias');
     });
 
     // ═════════════════════════════════════════════════════════════
-    // MÓDULO 2 Y 3: ALMACÉN, INVENTARIO Y GESTIÓN DE COMPRAS
+    // MÓDULO 2 Y 3: ALMACÉN, INVENTARIO, PROVEEDORES Y COMPRAS
     // (Administrador + Bodeguero)
     // ═════════════════════════════════════════════════════════════
     Route::middleware('role:Administrador,Bodeguero')->group(function () {
+
+        // ── Gestión de Proveedores e Importadores Mayoristas ──
+        Route::get('/proveedores', [ProveedorController::class, 'index'])->name('proveedores.index');
+        Route::get('/proveedores/crear', [ProveedorController::class, 'create'])->name('proveedores.create');
+        Route::post('/proveedores', [ProveedorController::class, 'store'])->name('proveedores.store');
+        Route::get('/proveedores/{id}/editar', [ProveedorController::class, 'edit'])->name('proveedores.edit');
+        Route::put('/proveedores/{id}', [ProveedorController::class, 'update'])->name('proveedores.update');
+        Route::match(['post', 'patch'], '/proveedores/{id}/toggle-status', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle-status');
+        Route::match(['post', 'patch'], '/proveedores/{id}/toggle', [ProveedorController::class, 'toggleStatus'])->name('proveedores.toggle');
 
         // ── Categorías (gestión) ──
         Route::post('/categorias', [CategoriaController::class, 'store'])->name('categorias.store');
@@ -114,32 +118,35 @@ Route::middleware('auth')->group(function () {
         Route::patch('/productos/{id}/toggle', [ProductoController::class, 'toggleStatus'])->name('productos.toggle');
         Route::patch('/productos/{id}/ubicacion', [ProductoController::class, 'actualizarUbicacion'])->name('productos.ubicacion');
 
-        // ── Códigos Alternativos (CU09) ──
+        // ── Códigos Alternativos ──
         Route::post('/codigos-alternativos', [CodigoAlternativoController::class, 'store'])->name('codigos-alternativos.store');
         Route::delete('/codigos-alternativos/{id}', [CodigoAlternativoController::class, 'destroy'])->name('codigos-alternativos.destroy');
 
-        // ── Vehículos (CU10) ──
+        // ── Catálogo Vehicular ──
         Route::get('/vehiculos', [VehiculoController::class, 'index'])->name('vehiculos.index');
+        Route::get('/catalogo-vehicular', [VehiculoController::class, 'index'])->name('catalogo-vehicular.alias');
         Route::post('/vehiculos', [VehiculoController::class, 'store'])->name('vehiculos.store');
         Route::put('/vehiculos/{id}', [VehiculoController::class, 'update'])->name('vehiculos.update');
         Route::delete('/vehiculos/{id}', [VehiculoController::class, 'destroy'])->name('vehiculos.destroy');
 
-        // ── Compatibilidades (CU11) ──
+        // ── Compatibilidades ──
         Route::post('/compatibilidades', [CompatibilidadController::class, 'store'])->name('compatibilidades.store');
         Route::delete('/compatibilidades/{id}', [CompatibilidadController::class, 'destroy'])->name('compatibilidades.destroy');
 
-        // ── Alertas de Stock Mínimo y Crítico (CU16) ──
+        // ── Alertas de Stock Mínimo y Crítico ──
         Route::get('/inventario/alertas', [InventarioController::class, 'alertas'])->name('inventario.alertas');
 
-        // ── Ajustes Manuales y Uso Interno (CU17, CU18) ──
+        // ── Ajustes Manuales y Uso Interno ──
         Route::get('/inventario/ajustes', [InventarioController::class, 'ajustes'])->name('inventario.ajustes');
         Route::post('/inventario/ajustes', [InventarioController::class, 'storeAjuste'])->name('inventario.ajustes.store');
 
-        // ── Compras, Recepción y Costos de Adquisición (CU20, CU21) ──
+        // ── Compras, Recepción y Costos de Adquisición ──
         Route::get('/compras', [CompraController::class, 'index'])->name('compras.index');
         Route::get('/compras/recepcion', [CompraController::class, 'create'])->name('compras.create');
+        Route::get('/compras/crear', [CompraController::class, 'create'])->name('compras.crear.alias');
         Route::post('/compras', [CompraController::class, 'store'])->name('compras.store');
         Route::get('/compras/historial/costos', [CompraController::class, 'historialCostos'])->name('compras.historial-costos');
+        Route::get('/compras/costos', [CompraController::class, 'historialCostos'])->name('compras.costos.alias');
         Route::get('/compras/{id}', [CompraController::class, 'show'])->name('compras.show');
     });
 });

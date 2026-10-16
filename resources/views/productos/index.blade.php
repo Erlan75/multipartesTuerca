@@ -66,12 +66,12 @@
             </div>
         </div>
 
-        {{-- Filtros Técnicos de Vehículo (CU12) --}}
+        {{-- Filtros Técnicos de Vehículo --}}
         <div class="pt-2 border-top" style="border-color:#F1F5F9 !important;">
             <div class="row g-2 align-items-center">
                 <div class="col-auto">
                     <span style="font-size:0.75rem;font-weight:600;color:#007AFF;">
-                        <i class="bi bi-truck me-1"></i>Filtro Vehicular (CU12):
+                        <i class="bi bi-truck me-1"></i>Filtro Vehicular:
                     </span>
                 </div>
                 <div class="col-md-3">
@@ -175,7 +175,7 @@
                         @endif
                     </td>
 
-                    {{-- Ubicación (CU14 / CU15) --}}
+                    {{-- Ubicación Física en Almacén --}}
                     <td style="padding:0.7rem 1rem;">
                         @if($p->pasillo || $p->estante || $p->nivel_gaveta)
                             <div class="d-flex align-items-center gap-1">
@@ -262,7 +262,7 @@
     Mostrando {{ $productos->firstItem() ?? 0 }}–{{ $productos->lastItem() ?? 0 }} de {{ $productos->total() }} productos
 </div>
 
-{{-- Modal Asignar Ubicación Rápida (CU15) --}}
+{{-- Modal Asignar Ubicación Rápida --}}
 <div class="modal fade" id="modalUbicacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered w-11/12 max-w-lg mx-auto" style="max-width: 520px;">
         <div class="modal-content modal-content-dark p-2">
@@ -270,7 +270,7 @@
                 @csrf
                 @method('PATCH')
                 <div class="modal-header py-3 px-3">
-                    <h6 class="modal-title fs-6"><i class="bi bi-geo-alt me-2 text-primary"></i>Asignar Coordenadas de Almacén (CU15)</h6>
+                    <h6 class="modal-title fs-6"><i class="bi bi-geo-alt me-2 text-primary"></i>Asignar Coordenadas de Almacén</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" style="min-height:36px;min-width:36px;"></button>
                 </div>
                 <div class="modal-body p-3">

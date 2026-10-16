@@ -127,7 +127,7 @@
         </div>
     </div>
 
-    {{-- TAB 2: Códigos Alternativos (CU09) --}}
+    {{-- TAB 2: Códigos Alternativos --}}
     <div class="tab-pane fade" id="tabCodigos">
         <div class="card-dark">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -171,7 +171,7 @@
         </div>
     </div>
 
-    {{-- TAB 3: Compatibilidades (CU11) --}}
+    {{-- TAB 3: Compatibilidades --}}
     <div class="tab-pane fade" id="tabCompat">
         <div class="card-dark">
             <div class="card-header d-flex justify-content-between align-items-center">

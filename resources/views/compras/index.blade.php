@@ -21,10 +21,10 @@
             <i class="bi bi-plus-lg me-1"></i>Nueva Recepción de Compra
         </a>
         <a href="{{ route('compras.cuentas-por-pagar') }}" class="btn btn-outline-tuerca" style="padding:0.55rem 1.2rem;font-size:0.85rem;">
-            <i class="bi bi-wallet2 me-1"></i>Cuentas por Pagar (CU22)
+            <i class="bi bi-wallet2 me-1"></i>Cuentas por Pagar
         </a>
         <a href="{{ route('compras.historial-costos') }}" class="btn btn-outline-secondary" style="border-radius:10px;font-size:0.85rem;padding:0.55rem 1.1rem;">
-            <i class="bi bi-graph-up me-1"></i>Historial de Costos (CU21)
+            <i class="bi bi-graph-up me-1"></i>Historial de Costos
         </a>
     </div>
 </div>
@@ -162,7 +162,7 @@
                                 @if($c->tipo_pago === 'Crédito' && $c->estado_pago === 'Pendiente')
                                     <form action="{{ route('compras.liquidar-pago', $c->id_compra) }}" method="POST" onsubmit="return confirm('¿Confirmar liquidación total de la compra #{{ $c->id_compra }} por Bs. {{ number_format($c->monto_total, 2) }}?');" style="display:inline;">
                                         @csrf
-                                        <button type="submit" class="btn btn-sm btn-success" style="border-radius:8px;padding:0.25rem 0.55rem;font-size:0.78rem;" title="Liquidar pago a distribuidor (CU22)">
+                                        <button type="submit" class="btn btn-sm btn-success" style="border-radius:8px;padding:0.25rem 0.55rem;font-size:0.78rem;" title="Liquidar pago a distribuidor">
                                             <i class="bi bi-cash-stack me-1"></i>Pagar
                                         </button>
                                     </form>

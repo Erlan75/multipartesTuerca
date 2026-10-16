@@ -3,7 +3,7 @@
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('productos.index') }}">Inventario</a></li>
-    <li class="breadcrumb-item active">Ajustes y Salidas (CU17 / CU18)</li>
+    <li class="breadcrumb-item active">Ajustes y Salidas</li>
 @endsection
 
 @section('content')
@@ -11,7 +11,7 @@
 <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
     <div>
         <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-            <i class="bi bi-arrow-left-right me-2" style="color:#007AFF;"></i>Ajustes de Inventario y Salidas Internas (CU17 / CU18)
+            <i class="bi bi-arrow-left-right me-2" style="color:#007AFF;"></i>Ajustes de Inventario y Salidas Internas
         </h4>
         <p style="color:#64748B;font-size:0.85rem;margin:0;">
             Auditoría de mermas, extravíos, rectificaciones por conteo físico y salidas para uso interno procesadas vía Stored Procedure Smart-DB.
@@ -191,7 +191,7 @@
     @endif
 </div>
 
-{{-- ═══ MODAL REGISTRAR AJUSTE (CU17 / CU18) ═══ --}}
+{{-- ═══ MODAL REGISTRAR AJUSTE ═══ --}}
 <div class="modal fade" id="modalNuevoAjuste" tabindex="-1" aria-labelledby="modalNuevoAjusteLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered w-11/12 max-w-lg mx-auto" style="max-width: 520px;">
         <div class="modal-content" style="border-radius:18px;border:1px solid #E2E8F0;box-shadow:0 20px 45px rgba(15,23,42,0.15);">

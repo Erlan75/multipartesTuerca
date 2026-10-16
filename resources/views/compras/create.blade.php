@@ -3,7 +3,7 @@
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('compras.index') }}">Compras</a></li>
-    <li class="breadcrumb-item active">Nueva Recepción (CU20)</li>
+    <li class="breadcrumb-item active">Nueva Recepción</li>
 @endsection
 
 @section('content')
@@ -11,7 +11,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h4 style="color:#1E293B;font-weight:700;margin-bottom:0.25rem;">
-                <i class="bi bi-box-arrow-in-down me-2" style="color:#007AFF;"></i>Recepción y Entrada de Mercadería (CU20)
+                <i class="bi bi-box-arrow-in-down me-2" style="color:#007AFF;"></i>Recepción y Entrada de Mercadería
             </h4>
             <p style="color:#64748B;font-size:0.85rem;margin:0;">
                 Ingrese los repuestos adquiridos para aumentar automáticamente el stock en almacén mediante SP Smart-DB.
