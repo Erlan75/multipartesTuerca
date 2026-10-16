@@ -97,6 +97,53 @@ $$ LANGUAGE plpgsql;
 
 
 -- =============================================================================
+-- AUXILIAR: VALIDACIÓN DE USUARIO ACTIVO Y AUTORIZADO POR ROL
+-- Nombre: fn_validar_usuario_autorizado
+-- Retorna: VARCHAR (nombre del rol del usuario validado)
+-- ¿Qué hace?:
+--   - Verifica que el usuario exista, esté activo y que su rol figure en la lista
+--     de roles permitidos. Si no, lanza una excepción y aborta la transacción.
+--   - La reutilizan los procedimientos transaccionales del Ciclo 2 como blindaje
+--     de autorización dentro del propio motor.
+-- =============================================================================
+CREATE OR REPLACE FUNCTION fn_validar_usuario_autorizado(
+    p_id_usuario INT,
+    p_roles_permitidos TEXT[]
+)
+RETURNS VARCHAR AS $$
+DECLARE
+    v_estado BOOLEAN;
+    v_rol VARCHAR(50);
+BEGIN
+    IF p_id_usuario IS NULL THEN
+        RAISE EXCEPTION 'Regla Smart-DB: Debe indicarse el usuario responsable de la operación.';
+    END IF;
+
+    SELECT u.estado, r.nombre_rol
+    INTO v_estado, v_rol
+    FROM usuarios u
+    JOIN roles r ON r.id_rol = u.id_rol
+    WHERE u.id_usuario = p_id_usuario;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Error Smart-DB: El usuario con ID % no existe.', p_id_usuario;
+    END IF;
+
+    IF v_estado IS NOT TRUE THEN
+        RAISE EXCEPTION 'Operación rechazada: El usuario con ID % se encuentra inactivo.', p_id_usuario;
+    END IF;
+
+    IF NOT (v_rol = ANY (p_roles_permitidos)) THEN
+        RAISE EXCEPTION 'Acceso denegado Smart-DB: El rol "%" no está autorizado para esta operación (permitidos: %).',
+            v_rol, array_to_string(p_roles_permitidos, ', ');
+    END IF;
+
+    RETURN v_rol;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- =============================================================================
 -- 2. PROCEDIMIENTO: RECEPCIÓN DE COMPRA Y ENTRADA A ALMACÉN (CU20 / CU21)
 -- Nombre: sp_registrar_compra
 -- Invocación (Laravel):
@@ -804,51 +851,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- =============================================================================
--- 12. FUNCIÓN AUXILIAR: VALIDACIÓN DE USUARIO ACTIVO Y AUTORIZADO POR ROL
--- Nombre: fn_validar_usuario_autorizado
--- Retorna: VARCHAR (nombre del rol del usuario validado)
--- ¿Qué hace?:
---   - Verifica que el usuario exista, esté activo y que su rol figure en la lista
---     de roles permitidos. Si no, lanza una excepción y aborta la transacción.
---   - La reutilizan los procedimientos transaccionales del Ciclo 2 como blindaje
---     de autorización dentro del propio motor.
--- =============================================================================
-CREATE OR REPLACE FUNCTION fn_validar_usuario_autorizado(
-    p_id_usuario INT,
-    p_roles_permitidos TEXT[]
-)
-RETURNS VARCHAR AS $$
-DECLARE
-    v_estado BOOLEAN;
-    v_rol VARCHAR(50);
-BEGIN
-    IF p_id_usuario IS NULL THEN
-        RAISE EXCEPTION 'Regla Smart-DB: Debe indicarse el usuario responsable de la operación.';
-    END IF;
 
-    SELECT u.estado, r.nombre_rol
-    INTO v_estado, v_rol
-    FROM usuarios u
-    JOIN roles r ON r.id_rol = u.id_rol
-    WHERE u.id_usuario = p_id_usuario;
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Error Smart-DB: El usuario con ID % no existe.', p_id_usuario;
-    END IF;
-
-    IF v_estado IS NOT TRUE THEN
-        RAISE EXCEPTION 'Operación rechazada: El usuario con ID % se encuentra inactivo.', p_id_usuario;
-    END IF;
-
-    IF NOT (v_rol = ANY (p_roles_permitidos)) THEN
-        RAISE EXCEPTION 'Acceso denegado Smart-DB: El rol "%" no está autorizado para esta operación (permitidos: %).',
-            v_rol, array_to_string(p_roles_permitidos, ', ');
-    END IF;
-
-    RETURN v_rol;
-END;
-$$ LANGUAGE plpgsql;
 
 
 -- =============================================================================

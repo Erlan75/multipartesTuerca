@@ -23,12 +23,22 @@ class PerfilController extends Controller
     {
         $request->validate([
             'password_actual'  => 'required|string',
-            'password_nueva'   => 'required|string|min:8|confirmed',
+            'password_nueva'   => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*?&#_.-]/',
+            ],
         ], [
             'password_actual.required'  => 'Debe ingresar su contraseña actual.',
             'password_nueva.required'   => 'Debe ingresar la nueva contraseña.',
             'password_nueva.min'        => 'La nueva contraseña debe tener al menos 8 caracteres.',
             'password_nueva.confirmed'  => 'Las contraseñas nuevas no coinciden.',
+            'password_nueva.regex'      => 'La nueva contraseña debe incluir al menos una letra mayúscula, una minúscula, un número y un carácter especial (@$!%*?&#_.-).',
         ]);
 
         $usuario = auth()->user();

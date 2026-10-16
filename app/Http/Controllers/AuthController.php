@@ -243,12 +243,22 @@ class AuthController extends Controller
     {
         $request->validate([
             'token'    => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*?&#_.-]/',
+            ],
         ], [
             'token.required'     => 'El token de verificación es obligatorio.',
             'password.required'  => 'Debe ingresar la nueva contraseña.',
             'password.min'       => 'La nueva contraseña debe tener al menos 8 caracteres.',
             'password.confirmed' => 'Las contraseñas no coinciden.',
+            'password.regex'     => 'La contraseña debe incluir al menos una letra mayúscula, una minúscula, un número y un carácter especial (@$!%*?&#_.-).',
         ]);
 
         $resetData = Cache::get('password_reset_' . $request->token);

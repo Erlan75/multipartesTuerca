@@ -2,18 +2,17 @@
 -- BASE DE DATOS: SISTEMA MULTIPARTES EL TUERCA
 -- MOTOR: PostgreSQL
 -- =============================================================================
--- HISTORIAL DE CAMBIOS ESTRUCTURALES (aplicados también sobre la BD viva)
+-- HISTORIAL DE CAMBIOS ESTRUCTURALES Y CONSOLIDACIÓN TOTAL DDL (CICLO 1 Y CICLO 2)
 -- -----------------------------------------------------------------------------
--- [Ciclo 1 - Seguridad] bitacoras_auditorias:
---   * id_usuario pasa a admitir NULL (eventos de login fallido de usuarios inexistentes).
---   * chk_bitacora_accion amplía acciones: LOGIN_FALLIDO, CUENTA_BLOQUEADA,
---     LOGIN_BLOQUEADO, PASSWORD_RESET_SOLICITUD, PASSWORD_RESET_EXITOSO,
---     PASSWORD_CAMBIO_PERFIL.
--- [Ciclo 2 - Inventario y Compras] Migración aplicada sobre BD existente:
---   ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS estado BOOLEAN DEFAULT TRUE;   -- CU19
---   ALTER TABLE ajustes_inventario DROP CONSTRAINT IF EXISTS chk_ajuste_tipo;       -- CU17/CU18
---   ALTER TABLE ajustes_inventario ADD CONSTRAINT chk_ajuste_tipo
---     CHECK (tipo_ajuste IN ('Merma', 'Pérdida/Extravío', 'Conteo Físico', 'Devolución Dañada', 'Uso Interno'));
+-- [Ciclo 1 - Seguridad]
+--   * bitacoras_auditorias.id_usuario admite NULL (login fallido de usuarios inexistentes).
+--   * chk_bitacora_accion: LOGIN_FALLIDO, CUENTA_BLOQUEADA, LOGIN_BLOQUEADO,
+--     PASSWORD_RESET_SOLICITUD, PASSWORD_RESET_EXITOSO, PASSWORD_CAMBIO_PERFIL,
+--     PASSWORD_MODIFICADO.
+-- [Ciclo 2 - Consolidación Nativa]
+--   * proveedores.estado BOOLEAN NOT NULL DEFAULT TRUE (CU19: baja lógica nativa).
+--   * ajustes_inventario.chk_ajuste_tipo nativo con 'Uso Interno' (CU17/CU18).
+--   * usuarios.chk_usuario_password_hash CHECK (length(password_hash) >= 60).
 -- =============================================================================
 
 -- Limpieza preventiva si se ejecuta en pruebas
@@ -64,7 +63,8 @@ CREATE TABLE usuarios (
         REFERENCES roles(id_rol) ON DELETE RESTRICT,
     CONSTRAINT chk_usuario_nombre CHECK (length(trim(nombre_completo)) >= 3),
     CONSTRAINT chk_usuario_username CHECK (length(trim(username)) >= 4),
-    CONSTRAINT chk_usuario_correo CHECK (correo ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+    CONSTRAINT chk_usuario_correo CHECK (correo ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    CONSTRAINT chk_usuario_password_hash CHECK (length(password_hash) >= 60)
 );
 CREATE UNIQUE INDEX uq_usuario_username_lower ON usuarios (lower(trim(username)));
 CREATE UNIQUE INDEX uq_usuario_correo_lower ON usuarios (lower(trim(correo)));
@@ -182,7 +182,7 @@ CREATE TABLE proveedores (
     correo VARCHAR(100),
     direccion VARCHAR(200),
     condicion_comercial VARCHAR(60) DEFAULT 'Contado',
-    estado BOOLEAN DEFAULT TRUE, -- CU19: baja lógica (TRUE = activo, FALSE = inactivo)
+    estado BOOLEAN NOT NULL DEFAULT TRUE, -- CU19: baja lógica (TRUE = activo, FALSE = inactivo)
     CONSTRAINT chk_prov_razon_social CHECK (length(trim(razon_social)) >= 3),
     CONSTRAINT chk_prov_condicion CHECK (condicion_comercial IN ('Contado', 'Crédito 15 días', 'Crédito 30 días', 'Crédito 60 días'))
 );
@@ -373,7 +373,8 @@ CREATE TABLE bitacoras_auditorias (
     CONSTRAINT chk_bitacora_accion CHECK (accion IN (
         'INSERT', 'UPDATE', 'DELETE', 'ANULACION', 'LOGIN', 'LOGOUT',
         'LOGIN_FALLIDO', 'CUENTA_BLOQUEADA', 'LOGIN_BLOQUEADO',
-        'PASSWORD_RESET_SOLICITUD', 'PASSWORD_RESET_EXITOSO', 'PASSWORD_CAMBIO_PERFIL'
+        'PASSWORD_RESET_SOLICITUD', 'PASSWORD_RESET_EXITOSO', 'PASSWORD_CAMBIO_PERFIL',
+        'PASSWORD_MODIFICADO'
     ))
 );
 CREATE INDEX idx_bitacora_fecha ON bitacoras_auditorias (fecha_hora);

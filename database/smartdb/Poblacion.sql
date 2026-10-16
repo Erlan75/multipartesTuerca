@@ -30,19 +30,21 @@ RESTART IDENTITY CASCADE;
 -- -----------------------------------------------------------------------------
 INSERT INTO roles (nombre_rol, descripcion) VALUES
 ('Administrador', 'Control total administrativo, auditoría, reportes y configuración'),
-('Vendedor', 'Atención en mostrador, emisión de cotizaciones y notas de venta en POS'),
 ('Bodeguero', 'Recepción de mercadería, gestión de compras, estanterías y ajustes'),
+('Vendedor', 'Atención en mostrador, emisión de cotizaciones y notas de venta en POS'),
 ('Cajero', 'Apertura y cierre de turnos, arqueo y cobro de transacciones');
 
 -- -----------------------------------------------------------------------------
--- 2. USUARIOS (IDs: 1 al 5)
+-- 2. USUARIOS (IDs: 1 al 5 - INTEGRANTES DEL PROYECTO CON CLAVE 'Cher_4mi')
 -- -----------------------------------------------------------------------------
-INSERT INTO usuarios (id_rol, nombre_completo, username, correo, telefono, password_hash, estado) VALUES
-(1, 'Carlos Eduardo Mendoza', 'admin', 'admin@eltuerca.com', '70011223', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', TRUE),
-(2, 'Jorge Mario Justiniano', 'jorge_ventas', 'jorge.ventas@eltuerca.com', '71022334', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', TRUE),
-(2, 'Maria Rene Aguilera', 'rene_ventas', 'm.aguilera@eltuerca.com', '72033445', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', TRUE),
-(3, 'Victor Hugo Salvatierra', 'victor_almacen', 'v.salvatierra@eltuerca.com', '73044556', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', TRUE),
-(4, 'Andrea Paola Torrico', 'andrea_caja', 'a.torrico@eltuerca.com', '74055667', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', TRUE);
+INSERT INTO usuarios (id_usuario, id_rol, nombre_completo, username, correo, telefono, password_hash, estado) VALUES
+(1, 1, 'Garcia Mamani Erlan Gaston', 'Erlan', 'erlan.garcia75@gmail.com', '75909498', '$2y$10$cQeCDqBLIzf8nCqcSLvflezp6Po7WVIxNQzUYazMWxYN1KD5yElyW', TRUE),
+(2, 2, 'Rojas Daza Cristhian', 'Cristhian', 'cristhianrojasdaza338@gmail.com', '70012345', '$2y$10$cQeCDqBLIzf8nCqcSLvflezp6Po7WVIxNQzUYazMWxYN1KD5yElyW', TRUE),
+(3, 3, 'Olivera Baltazar Juan Carlos', 'Carlos', 'oliveraj221@gmail.com', '71098765', '$2y$10$cQeCDqBLIzf8nCqcSLvflezp6Po7WVIxNQzUYazMWxYN1KD5yElyW', TRUE),
+(4, 4, 'Baldivieso Orosco Sebastian Henry', 'Sebastian', 'sebastian.baldi7@gmail.com', '72054321', '$2y$10$cQeCDqBLIzf8nCqcSLvflezp6Po7WVIxNQzUYazMWxYN1KD5yElyW', TRUE),
+(5, 1, 'Mamani Maturano Edilson', 'Edilson', 'erickmaturano04@gmail.com', '73067890', '$2y$10$cQeCDqBLIzf8nCqcSLvflezp6Po7WVIxNQzUYazMWxYN1KD5yElyW', TRUE);
+
+SELECT setval('usuarios_id_usuario_seq', 5, true);
 
 -- -----------------------------------------------------------------------------
 -- 3. CATEGORÍAS (IDs: 1 al 6)
@@ -207,9 +209,9 @@ INSERT INTO clientes (nombre_razon_social, ci_nit, telefono, tipo_cliente, descu
 -- 10. SESIONES DE CAJA (IDs: 1 y 2)
 -- Ambas nacen 'Abierta' para recibir movimientos y ventas sin error de trigger
 -- -----------------------------------------------------------------------------
--- Sesión 1: Turno de ayer (asignada a Andrea Torrico, ID usuario 5)
+-- Sesión 1: Turno de ayer (asignada a Sebastian Baldivieso, Cajero ID 4)
 INSERT INTO sesiones_cajas (id_usuario_cajero, fecha_hora_apertura, monto_inicial, estado) VALUES
-(5, CURRENT_TIMESTAMP - INTERVAL '1 day 8 hours', 300.00, 'Abierta');
+(4, CURRENT_TIMESTAMP - INTERVAL '1 day 8 hours', 300.00, 'Abierta');
 
 -- Movimientos de Sesión 1
 INSERT INTO movimientos_cajas (id_sesion, tipo, monto, motivo, hora) VALUES
@@ -227,14 +229,14 @@ INSERT INTO movimientos_cajas (id_sesion, tipo, monto, motivo, hora) VALUES
 
 -- -----------------------------------------------------------------------------
 -- 11. NOTAS DE COMPRAS (IDs: 1 al 5)
--- Registradas por Bodeguero (ID usuario 4: Victor Salvatierra)
+-- Registradas por Bodeguero (ID usuario 2: Cristhian Rojas)
 -- -----------------------------------------------------------------------------
 INSERT INTO notas_compras (id_proveedor, id_usuario_receptor, numero_factura_nota, fecha_compra, monto_total, tipo_pago, estado_pago) VALUES
-(1, 4, 'FAC-008921', CURRENT_DATE - INTERVAL '10 days', 5400.00, 'Crédito', 'Pendiente'),
-(2, 4, 'FAC-003412', CURRENT_DATE - INTERVAL '7 days', 3850.00, 'Contado', 'Pagado'),
-(3, 4, 'FAC-011290', CURRENT_DATE - INTERVAL '4 days', 3900.00, 'Contado', 'Pagado'),
-(4, 4, 'FAC-007811', CURRENT_DATE - INTERVAL '3 days', 2850.00, 'Crédito', 'Pendiente'),
-(5, 4, 'FAC-001244', CURRENT_DATE - INTERVAL '1 day', 4120.00, 'Contado', 'Pagado');
+(1, 2, 'FAC-008921', CURRENT_DATE - INTERVAL '10 days', 5400.00, 'Crédito', 'Pendiente'),
+(2, 2, 'FAC-003412', CURRENT_DATE - INTERVAL '7 days', 3850.00, 'Contado', 'Pagado'),
+(3, 2, 'FAC-011290', CURRENT_DATE - INTERVAL '4 days', 3900.00, 'Contado', 'Pagado'),
+(4, 2, 'FAC-007811', CURRENT_DATE - INTERVAL '3 days', 2850.00, 'Crédito', 'Pendiente'),
+(5, 2, 'FAC-001244', CURRENT_DATE - INTERVAL '1 day', 4120.00, 'Contado', 'Pagado');
 
 -- -----------------------------------------------------------------------------
 -- 12. DETALLES DE COMPRAS
@@ -384,12 +386,12 @@ INSERT INTO detalles_ventas (id_venta, id_producto, cantidad_vendida, precio_uni
 
 -- -----------------------------------------------------------------------------
 -- 17. AJUSTES FÍSICOS DE INVENTARIO
--- Disparan fn_trg_aplicar_ajuste_inventario()
+-- Disparan fn_trg_aplicar_ajuste_inventario() (responsable: Bodeguero Cristhian Rojas ID 2)
 -- -----------------------------------------------------------------------------
 INSERT INTO ajustes_inventario (id_producto, id_usuario, cantidad_ajustada, tipo_ajuste, motivo, fecha_ajuste) VALUES
-(15, 4, -2, 'Merma', 'Empaque aplastado durante descarga con electrodo fisurado', CURRENT_TIMESTAMP - INTERVAL '5 days'),
-(17, 4, 3, 'Conteo Físico', 'Aparición de sobrante físico no contabilizado en estantería E-02', CURRENT_TIMESTAMP - INTERVAL '2 days'),
-(1, 4, -1, 'Devolución Dañada', 'Pastilla de freno con seguro quebrado devuelta por cliente', CURRENT_TIMESTAMP - INTERVAL '1 day');
+(15, 2, -2, 'Merma', 'Empaque aplastado durante descarga con electrodo fisurado', CURRENT_TIMESTAMP - INTERVAL '5 days'),
+(17, 2, 3, 'Conteo Físico', 'Aparición de sobrante físico no contabilizado en estantería E-02', CURRENT_TIMESTAMP - INTERVAL '2 days'),
+(1, 2, -1, 'Devolución Dañada', 'Pastilla de freno con seguro quebrado devuelta por cliente', CURRENT_TIMESTAMP - INTERVAL '1 day');
 
 -- -----------------------------------------------------------------------------
 -- 18. BITÁCORA Y AUDITORÍA HISTÓRICA

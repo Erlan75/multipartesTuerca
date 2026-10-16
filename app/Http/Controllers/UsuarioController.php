@@ -50,14 +50,25 @@ class UsuarioController extends Controller
             'username'         => 'required|string|min:4|max:50|unique:usuarios,username',
             'correo'           => 'required|email|max:100|unique:usuarios,correo',
             'telefono'         => 'nullable|string|max:20',
-            'password'         => 'required|string|min:6|confirmed',
+            'password'         => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*?&#_.-]/',
+            ],
         ], [
             'nombre_completo.min' => 'El nombre debe tener al menos 3 caracteres.',
             'username.min'        => 'El usuario debe tener al menos 4 caracteres.',
             'username.unique'     => 'Este nombre de usuario ya está en uso.',
             'correo.unique'       => 'Este correo electrónico ya está registrado.',
-            'password.min'        => 'La contraseña debe tener al menos 6 caracteres.',
+            'password.required'   => 'La contraseña es obligatoria.',
+            'password.min'        => 'La contraseña debe tener al menos 8 caracteres.',
             'password.confirmed'  => 'Las contraseñas no coinciden.',
+            'password.regex'      => 'La contraseña debe incluir al menos una letra mayúscula, una minúscula, un número y un carácter especial (@$!%*?&#_.-).',
         ]);
 
         $usuario = Usuario::create([

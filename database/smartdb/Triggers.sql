@@ -468,3 +468,49 @@ CREATE TRIGGER trg_descontar_caja_anulacion
 AFTER UPDATE OF estado ON notas_ventas
 FOR EACH ROW
 EXECUTE FUNCTION fn_trg_descontar_caja_anulacion();
+
+
+-- =============================================================================
+-- 14. TRIGGER: AUDITORÍA AUTOMÁTICA DE MODIFICACIÓN DE CONTRASEÑA
+-- Tabla: usuarios
+-- Evento: AFTER UPDATE OF password_hash
+-- Función: Inserta de forma inmutable en bitacoras_auditorias cada vez que un
+--          usuario cambia o restablece su contraseña.
+-- =============================================================================
+CREATE OR REPLACE FUNCTION fn_trg_auditar_cambio_password()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.password_hash IS DISTINCT FROM NEW.password_hash THEN
+        INSERT INTO bitacoras_auditorias (
+            id_usuario,
+            modulo_afectado,
+            accion,
+            registro_id,
+            detalle_cambio,
+            ip_origen
+        ) VALUES (
+            NEW.id_usuario,
+            'Seguridad / Usuarios',
+            'PASSWORD_MODIFICADO',
+            NEW.id_usuario,
+            json_build_object(
+                'evento', 'Actualización de credencial de acceso (password_hash)',
+                'usuario', NEW.username,
+                'correo', NEW.correo,
+                'id_usuario', NEW.id_usuario,
+                'fecha_modificacion', CURRENT_TIMESTAMP
+            )::TEXT,
+            COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_auditar_cambio_password ON usuarios;
+CREATE TRIGGER trg_auditar_cambio_password
+AFTER UPDATE OF password_hash ON usuarios
+FOR EACH ROW
+EXECUTE FUNCTION fn_trg_auditar_cambio_password();
+
