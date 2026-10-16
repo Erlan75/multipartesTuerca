@@ -15,7 +15,7 @@ class ProductoController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Producto::with(['categoria', 'codigosAlternativos', 'vehiculos']);
+        $query = Producto::with(['categoria', 'codigosAlternativos']);
 
         if ($request->filled('buscar')) {
             $buscar = trim($request->buscar);
@@ -31,28 +31,6 @@ class ProductoController extends Controller
             });
         }
 
-        if ($request->filled('marca_vehiculo')) {
-            $marca = $request->marca_vehiculo;
-            $query->whereHas('vehiculos', function ($v) use ($marca) {
-                $v->where('marca', $marca);
-            });
-        }
-
-        if ($request->filled('modelo_vehiculo')) {
-            $modelo = $request->modelo_vehiculo;
-            $query->whereHas('vehiculos', function ($v) use ($modelo) {
-                $v->where('modelo', 'ilike', "%{$modelo}%");
-            });
-        }
-
-        if ($request->filled('anio_vehiculo')) {
-            $anio = (int)$request->anio_vehiculo;
-            $query->whereHas('vehiculos', function ($v) use ($anio) {
-                $v->where('anio_inicio', '<=', $anio)
-                  ->where('anio_fin', '>=', $anio);
-            });
-        }
-
         if ($request->filled('id_categoria')) {
             $query->where('id_categoria', $request->id_categoria);
         }
@@ -63,9 +41,8 @@ class ProductoController extends Controller
 
         $productos = $query->orderBy('id_producto')->paginate(15)->withQueryString();
         $categorias = Categoria::orderBy('nombre')->get();
-        $marcasVehiculos = Vehiculo::select('marca')->distinct()->orderBy('marca')->pluck('marca');
 
-        return view('productos.index', compact('productos', 'categorias', 'marcasVehiculos'));
+        return view('productos.index', compact('productos', 'categorias'));
     }
 
     /**

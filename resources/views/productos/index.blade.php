@@ -24,15 +24,15 @@
 {{-- ═══ FILTROS ═══ --}}
 <div style="background:#fff;border:1px solid rgba(226,232,240,0.80);border-radius:14px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 1px 2px rgba(15,23,42,0.03);">
     <form method="GET" action="{{ route('productos.index') }}">
-        <div class="row g-2 align-items-end mb-2">
+        <div class="row g-2 align-items-end">
             <div class="col-md-5">
                 <label style="font-size:0.75rem;font-weight:600;color:#64748B;margin-bottom:0.2rem;display:block;">
-                    Búsqueda Rápida / Código Cruzado (OEM o Alternativo)
+                    Búsqueda Rápida / Código Cruzado (OEM, alternativo, código interno o descripción)
                 </label>
                 <div style="position:relative;">
                     <i class="bi bi-search" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:0.85rem;"></i>
                     <input type="text" name="buscar" class="form-control form-control-dark"
-                           placeholder="Código interno, OEM, código alternativo, pieza..."
+                           placeholder="Buscar por OEM, alternativo, código o pieza..."
                            value="{{ request('buscar') }}"
                            style="padding-left:2.2rem;">
                 </div>
@@ -63,40 +63,6 @@
                 <a href="{{ route('productos.index') }}" class="btn btn-outline-tuerca" style="padding:0.5rem 0.75rem;" title="Limpiar filtros">
                     <i class="bi bi-x-lg"></i>
                 </a>
-            </div>
-        </div>
-
-        {{-- Filtros Técnicos de Vehículo --}}
-        <div class="pt-2 border-top" style="border-color:#F1F5F9 !important;">
-            <div class="row g-2 align-items-center">
-                <div class="col-auto">
-                    <span style="font-size:0.75rem;font-weight:600;color:#007AFF;">
-                        <i class="bi bi-truck me-1"></i>Filtro Vehicular:
-                    </span>
-                </div>
-                <div class="col-md-3">
-                    <select name="marca_vehiculo" class="form-select form-select-dark form-select-sm" style="font-size:0.8rem;">
-                        <option value="">Marca de Vehículo...</option>
-                        @foreach($marcasVehiculos as $m)
-                            <option value="{{ $m }}" {{ request('marca_vehiculo') == $m ? 'selected' : '' }}>{{ $m }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <input type="text" name="modelo_vehiculo" class="form-control form-control-dark form-control-sm"
-                           placeholder="Modelo (ej: Corolla, Hilux)..."
-                           value="{{ request('modelo_vehiculo') }}" style="font-size:0.8rem;">
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="anio_vehiculo" class="form-control form-control-dark form-control-sm"
-                           placeholder="Año (ej: 2018)..."
-                           value="{{ request('anio_vehiculo') }}" style="font-size:0.8rem;">
-                </div>
-                <div class="col-auto">
-                    <button class="btn btn-sm btn-outline-secondary" type="submit" style="font-size:0.75rem;padding:0.35rem 0.7rem;">
-                        Aplicar Vehicular
-                    </button>
-                </div>
             </div>
         </div>
     </form>

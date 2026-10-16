@@ -125,6 +125,7 @@ Route::middleware('auth')->group(function () {
         // ── Catálogo Vehicular ──
         Route::get('/vehiculos', [VehiculoController::class, 'index'])->name('vehiculos.index');
         Route::get('/catalogo-vehicular', [VehiculoController::class, 'index'])->name('catalogo-vehicular.alias');
+        Route::get('/vehiculos/{id}/repuestos', [VehiculoController::class, 'repuestosCompatibles'])->name('vehiculos.repuestos');
         Route::post('/vehiculos', [VehiculoController::class, 'store'])->name('vehiculos.store');
         Route::put('/vehiculos/{id}', [VehiculoController::class, 'update'])->name('vehiculos.update');
         Route::delete('/vehiculos/{id}', [VehiculoController::class, 'destroy'])->name('vehiculos.destroy');
