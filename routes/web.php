@@ -16,6 +16,10 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\CompraController;
+use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\CotizacionController;
+use App\Http\Controllers\VentaController;
+use App\Http\Controllers\CajaController;
 
 // ═══════════════════════════════════════════════════════════════
 // RUTAS PÚBLICAS (Sin autenticación)
@@ -46,6 +50,10 @@ Route::middleware('auth')->group(function () {
     // ── Perfil: Cambiar Contraseña (todos los usuarios autenticados) ──
     Route::get('/perfil/password', [PerfilController::class, 'editPassword'])->name('perfil.password');
     Route::put('/perfil/password', [PerfilController::class, 'updatePassword'])->name('perfil.password.update');
+
+    // ── Portal de Cotizaciones para Clientes Web (Rol 5 y Usuarios Autenticados) ──
+    Route::get('/mis-cotizaciones', [CotizacionController::class, 'misCotizaciones'])->name('mis-cotizaciones.index');
+    Route::post('/mis-cotizaciones', [CotizacionController::class, 'storeMiCotizacion'])->name('mis-cotizaciones.store');
 
     // ═════════════════════════════════════════════════════════════
     // MÓDULO 1: SEGURIDAD Y ACCESO + ADMINISTRACIÓN (Solo Administrador)
@@ -81,14 +89,55 @@ Route::middleware('auth')->group(function () {
     });
 
     // ═════════════════════════════════════════════════════════════
-    // CATÁLOGO DE REPUESTOS Y CONSULTA (Admin + Bodeguero + Vendedor)
+    // CATÁLOGO DE REPUESTOS Y CONSULTA (Admin + Bodeguero + Vendedor + Cajero)
     // ═════════════════════════════════════════════════════════════
-    Route::middleware('role:Administrador,Bodeguero,Vendedor')->group(function () {
+    Route::middleware('role:Administrador,Bodeguero,Vendedor,Cajero')->group(function () {
         Route::get('/categorias', [CategoriaController::class, 'index'])->name('categorias.index');
         Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
         Route::get('/repuestos', [ProductoController::class, 'index'])->name('repuestos.index');
         Route::get('/almacen/ubicaciones', [ProductoController::class, 'index'])->name('almacen.ubicaciones.alias');
     });
+
+    // ═════════════════════════════════════════════════════════════
+    // CICLO 3: CLIENTES, COTIZACIONES, PUNTO DE VENTA (POS) Y TESORERÍA/CAJA
+    // (Administrador, Vendedor y Cajero)
+    // ═════════════════════════════════════════════════════════════
+    Route::middleware('role:Administrador,Vendedor,Cajero')->group(function () {
+
+        // ── Gestión de Clientes Particulares, Talleres y Flotas ──
+        Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
+        Route::get('/clientes/crear', [ClienteController::class, 'create'])->name('clientes.create');
+        Route::post('/clientes', [ClienteController::class, 'store'])->name('clientes.store');
+        Route::get('/clientes/{id}', [ClienteController::class, 'show'])->name('clientes.show');
+        Route::get('/clientes/{id}/editar', [ClienteController::class, 'edit'])->name('clientes.edit');
+        Route::put('/clientes/{id}', [ClienteController::class, 'update'])->name('clientes.update');
+
+        // ── Cotizaciones y Proformas Comerciales ──
+        Route::get('/cotizaciones', [CotizacionController::class, 'index'])->name('cotizaciones.index');
+        Route::get('/cotizaciones/crear', [CotizacionController::class, 'create'])->name('cotizaciones.create');
+        Route::post('/cotizaciones', [CotizacionController::class, 'store'])->name('cotizaciones.store');
+        Route::post('/cotizaciones/{id}/convertir', [CotizacionController::class, 'convertirAVenta'])->name('cotizaciones.convertir');
+        Route::match(['post', 'patch'], '/cotizaciones/{id}/anular', [CotizacionController::class, 'anular'])->name('cotizaciones.anular');
+
+        // ── Punto de Venta (POS), Notas de Venta y Ticket Térmico 80mm ──
+        Route::get('/ventas', [VentaController::class, 'index'])->name('ventas.index');
+        Route::get('/ventas/pos', [VentaController::class, 'pos'])->name('ventas.pos');
+        Route::get('/ventas/crear', [VentaController::class, 'pos'])->name('ventas.create');
+        Route::post('/ventas', [VentaController::class, 'store'])->name('ventas.store');
+        Route::get('/ventas/{id}/ticket', [VentaController::class, 'ticket'])->name('ventas.ticket');
+        Route::get('/ventas/{id}', [VentaController::class, 'ticket'])->name('ventas.show');
+        Route::post('/ventas/{id}/anular', [VentaController::class, 'anular'])->name('ventas.anular');
+
+        // ── Tesorería, Sesiones de Caja, Movimientos Menores y Arqueo ──
+        Route::get('/caja', [CajaController::class, 'index'])->name('caja.index');
+        Route::post('/caja/abrir', [CajaController::class, 'abrir'])->name('caja.abrir');
+        Route::post('/caja/movimientos', [CajaController::class, 'registrarMovimiento'])->name('caja.movimientos.store');
+        Route::post('/caja/{id}/cerrar', [CajaController::class, 'cerrar'])->name('caja.cerrar');
+        Route::get('/caja/{id}', [CajaController::class, 'show'])->name('caja.show');
+    });
+
+    // Vista de proforma individual accesible también para el propio Cliente Web (validado en controlador)
+    Route::get('/cotizaciones/{id}', [CotizacionController::class, 'show'])->name('cotizaciones.show');
 
     // ═════════════════════════════════════════════════════════════
     // MÓDULO 2 Y 3: ALMACÉN, INVENTARIO, PROVEEDORES Y COMPRAS
@@ -151,4 +200,3 @@ Route::middleware('auth')->group(function () {
         Route::get('/compras/{id}', [CompraController::class, 'show'])->name('compras.show');
     });
 });
-

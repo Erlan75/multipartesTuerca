@@ -880,7 +880,7 @@
                             <span class="d-none d-sm-inline fw-semibold text-dark" style="font-size: 0.88rem;">
                                 <i class="bi bi-person-circle text-primary me-1"></i>Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}
                             </span>
-                            <a href="#catalogo" class="btn-mac-outline btn-sm">
+                            <a href="{{ route('mis-cotizaciones.index') }}" class="btn-mac-primary btn-sm">
                                 <i class="bi bi-receipt"></i>
                                 <span>Mis Cotizaciones</span>
                             </a>
@@ -1389,12 +1389,20 @@
                                     </div>
 
                                     <!-- Trigger Modal Button -->
-                                    <button type="button" 
-                                            class="btn-check-compat" 
-                                            onclick='verDetalleCompatibilidad(@json($p))'>
-                                        <i class="bi bi-patch-check"></i>
-                                        <span>Consultar compatibilidad</span>
-                                    </button>
+                                    <div class="d-grid gap-2 mt-2">
+                                        <button type="button" 
+                                                class="btn-check-compat mt-0" 
+                                                onclick='verDetalleCompatibilidad(@json($p))'>
+                                            <i class="bi bi-patch-check"></i>
+                                            <span>Consultar compatibilidad</span>
+                                        </button>
+                                        <a href="{{ route('mis-cotizaciones.index', ['id_producto' => $p->id_producto]) }}"
+                                           class="btn btn-sm btn-primary fw-semibold d-flex align-items-center justify-content-center gap-1"
+                                           style="border-radius: 10px; padding: 7px 12px; font-size: 0.78rem; background: linear-gradient(135deg, #007AFF, #0055D4); border: none;">
+                                            <i class="bi bi-file-earmark-plus"></i>
+                                            <span>Cotizar este repuesto</span>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>

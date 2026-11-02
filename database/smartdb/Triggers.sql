@@ -251,17 +251,18 @@ BEGIN
             detalle_cambio,
             ip_origen
         ) VALUES (
-            NEW.id_usuario_vendedor,
+            COALESCE(NULLIF(current_setting('app.id_usuario', true), '')::INT, NEW.id_usuario_vendedor),
             'Ventas / POS',
             'ANULACION',
             NEW.id_venta,
             json_build_object(
                 'total_venta', NEW.total_venta,
+                'descuento_total', NEW.descuento_total,
                 'metodo_pago', NEW.metodo_pago,
                 'motivo_anulacion', NEW.motivo_anulacion,
                 'fecha_anulacion', CURRENT_TIMESTAMP
             )::TEXT,
-            '127.0.0.1'
+            COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
         );
     END IF;
 
@@ -274,6 +275,8 @@ CREATE TRIGGER trg_auditar_anulacion_venta
 AFTER UPDATE OF estado ON notas_ventas
 FOR EACH ROW
 EXECUTE FUNCTION fn_trg_auditar_anulacion_venta();
+
+
 -- =============================================================================
 -- 8. TRIGGER: CONTROL DE CAJA ÚNICA POR USUARIO
 -- Tabla: sesiones_cajas
@@ -448,6 +451,8 @@ CREATE TRIGGER trg_validar_vigencia_cotizacion
 BEFORE UPDATE OF estado ON cotizaciones
 FOR EACH ROW
 EXECUTE FUNCTION fn_trg_validar_vigencia_cotizacion();
+
+
 -- =============================================================================
 -- 13. TRIGGER: DESCUENTO DE CAJA POR VENTA ANULADA
 -- =============================================================================
@@ -514,3 +519,102 @@ AFTER UPDATE OF password_hash ON usuarios
 FOR EACH ROW
 EXECUTE FUNCTION fn_trg_auditar_cambio_password();
 
+
+-- =============================================================================
+-- 15. TRIGGER: CONTROL DE DESCUENTO COMERCIAL Y PROTECCIÓN DE COSTO DE ADQUISICIÓN
+-- Tablas: notas_ventas, detalles_ventas
+-- Evento: BEFORE INSERT OR UPDATE
+-- Función:
+--   15.1. Impide aplicar un descuento superior al límite comercial permitido (50% del total bruto).
+--   15.2. Impide vender un repuesto a un precio neto efectivo inferior a su último costo de adquisición.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION fn_trg_validar_descuento_cabecera()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_total_bruto NUMERIC(12, 2);
+BEGIN
+    IF NEW.descuento_total < 0 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El descuento comercial no puede ser negativo.';
+    END IF;
+
+    v_total_bruto := NEW.total_venta + NEW.descuento_total;
+
+    IF v_total_bruto > 0 AND NEW.descuento_total > ROUND(v_total_bruto * 0.50, 2) THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El descuento aplicado (Bs. %) supera el límite comercial máximo permitido (50%% sobre Bs. %).',
+            NEW.descuento_total, v_total_bruto;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validar_descuento_cabecera ON notas_ventas;
+CREATE TRIGGER trg_validar_descuento_cabecera
+BEFORE INSERT OR UPDATE ON notas_ventas
+FOR EACH ROW
+EXECUTE FUNCTION fn_trg_validar_descuento_cabecera();
+
+
+CREATE OR REPLACE FUNCTION fn_trg_validar_margen_costo_venta()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_nombre_pieza VARCHAR(150);
+    v_precio_sugerido NUMERIC(12, 2);
+    v_margen_ganancia NUMERIC(5, 2);
+    v_ultimo_costo NUMERIC(12, 2);
+    v_costo_base NUMERIC(12, 2);
+    v_total_venta NUMERIC(12, 2);
+    v_descuento_total NUMERIC(12, 2);
+    v_total_bruto NUMERIC(12, 2);
+    v_factor_neto NUMERIC(10, 6) := 1.000000;
+    v_precio_efectivo NUMERIC(12, 2);
+BEGIN
+    SELECT nombre_pieza, precio_venta_sugerido, margen_ganancia
+    INTO v_nombre_pieza, v_precio_sugerido, v_margen_ganancia
+    FROM productos
+    WHERE id_producto = NEW.id_producto;
+
+    -- Obtener el último costo de adquisición registrado en compras no anuladas
+    SELECT dc.costo_unitario
+    INTO v_ultimo_costo
+    FROM detalles_compras dc
+    JOIN notas_compras nc ON nc.id_compra = dc.id_compra
+    WHERE dc.id_producto = NEW.id_producto
+      AND nc.estado_pago <> 'Anulado'
+    ORDER BY nc.fecha_compra DESC, dc.id_detalle_compra DESC
+    LIMIT 1;
+
+    -- Si no tiene compras previas, estimar el costo base según margen_ganancia
+    v_costo_base := COALESCE(
+        v_ultimo_costo,
+        ROUND(v_precio_sugerido / (1.00 + (COALESCE(v_margen_ganancia, 25.00) / 100.00)), 2)
+    );
+
+    -- Obtener montos de la cabecera de la venta para prorratear descuento global
+    SELECT total_venta, descuento_total
+    INTO v_total_venta, v_descuento_total
+    FROM notas_ventas
+    WHERE id_venta = NEW.id_venta;
+
+    v_total_bruto := COALESCE(v_total_venta, 0.00) + COALESCE(v_descuento_total, 0.00);
+    IF v_total_bruto > 0 THEN
+        v_factor_neto := v_total_venta / v_total_bruto;
+    END IF;
+
+    v_precio_efectivo := ROUND(NEW.precio_unitario_cobrado * v_factor_neto, 2);
+
+    IF v_precio_efectivo < v_costo_base THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El precio neto de venta para "%" (Bs. %) es inferior al costo de adquisición (Bs. %). Descuento rechazado.',
+            v_nombre_pieza, v_precio_efectivo, v_costo_base;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validar_margen_costo_venta ON detalles_ventas;
+CREATE TRIGGER trg_validar_margen_costo_venta
+BEFORE INSERT ON detalles_ventas
+FOR EACH ROW
+EXECUTE FUNCTION fn_trg_validar_margen_costo_venta();

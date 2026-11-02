@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use App\Models\Usuario;
+use App\Models\Cliente;
 use App\Helpers\Bitacora;
 
 class AuthController extends Controller
@@ -80,6 +81,17 @@ class AuthController extends Controller
             'password_hash'   => Hash::make($request->password),
             'estado'          => true,
         ]);
+
+        // Crear ficha comercial de Cliente asociada al usuario web registrado
+        Cliente::firstOrCreate(
+            ['nombre_razon_social' => $usuario->nombre_completo],
+            [
+                'ci_nit'              => 'S/N',
+                'telefono'            => $usuario->telefono,
+                'tipo_cliente'        => 'Particular',
+                'descuento_frecuente' => 0.00,
+            ]
+        );
 
         Auth::login($usuario);
 

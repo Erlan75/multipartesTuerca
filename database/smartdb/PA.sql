@@ -5,106 +5,12 @@
 -- =============================================================================
 
 -- =============================================================================
--- 1. FUNCIÓN: REGISTRO INTEGRAL DE VENTA ATÓMICA
--- Nombre: sp_registrar_venta
--- Retorna: INT (ID de la venta generada)
--- ¿Qué hace?:
---   - Recibe el cliente, cajero/vendedor, sesión de caja y un array JSON con los ítems.
---   - Valida que el carrito contenga al menos un producto.
---   - Calcula la sumatoria de subtotales y deduce el descuento global.
---   - Inserta la cabecera en 'notas_ventas' (disparando el Trigger 3 de validación 
---     de caja abierta y el Trigger 9.1 de acumulación de efectivo en caja).
---   - Itera e inserta cada línea en 'detalles_ventas' (disparando el Trigger 1 de 
---     bloqueo FOR UPDATE, validación de stock y descuento físico en almacén).
--- =============================================================================
-CREATE OR REPLACE FUNCTION sp_registrar_venta(
-    p_id_cliente INT,
-    p_id_usuario_vendedor INT,
-    p_id_sesion_caja INT,
-    p_metodo_pago VARCHAR(30),
-    p_descuento_total NUMERIC(12, 2),
-    p_items JSONB -- Formato esperado: '[{"id_producto": 1, "cantidad": 2, "precio": 150.00}]'
-)
-RETURNS INT AS $$
-DECLARE
-    v_id_venta INT;
-    v_total_bruto NUMERIC(12, 2) := 0.00;
-    v_total_neto NUMERIC(12, 2) := 0.00;
-    v_item JSONB;
-    v_subtotal NUMERIC(12, 2);
-BEGIN
-    -- Validación preventiva: no permitir ventas vacías
-    IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
-        RAISE EXCEPTION 'Regla Smart-DB: No se pueden registrar ventas sin productos en el carrito.';
-    END IF;
-
-    -- Cálculo acumulativo de subtotales
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        v_subtotal := (v_item->>'cantidad')::INT * (v_item->>'precio')::NUMERIC(12, 2);
-        v_total_bruto := v_total_bruto + v_subtotal;
-    END LOOP;
-
-    -- Aplicación y control de descuento comercial
-    v_total_neto := v_total_bruto - COALESCE(p_descuento_total, 0.00);
-    IF v_total_neto < 0 THEN
-        RAISE EXCEPTION 'Regla Smart-DB: El descuento (Bs. %) no puede ser mayor al importe bruto (Bs. %).', 
-            p_descuento_total, v_total_bruto;
-    END IF;
-
-    -- Inserción de cabecera:
-    -- Dispara fn_trg_validar_caja_abierta() y fn_trg_acumular_venta_caja()
-    INSERT INTO notas_ventas (
-        id_cliente,
-        id_usuario_vendedor,
-        id_sesion_caja,
-        total_venta,
-        descuento_total,
-        metodo_pago,
-        estado
-    ) VALUES (
-        p_id_cliente,
-        p_id_usuario_vendedor,
-        p_id_sesion_caja,
-        v_total_neto,
-        COALESCE(p_descuento_total, 0.00),
-        p_metodo_pago,
-        'Completada'
-    ) RETURNING id_venta INTO v_id_venta;
-
-    -- Inserción de renglones:
-    -- Cada INSERT dispara fn_trg_descontar_stock_venta() con bloqueo pesimista
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        INSERT INTO detalles_ventas (
-            id_venta,
-            id_producto,
-            cantidad_vendida,
-            precio_unitario_cobrado,
-            subtotal
-        ) VALUES (
-            v_id_venta,
-            (v_item->>'id_producto')::INT,
-            (v_item->>'cantidad')::INT,
-            (v_item->>'precio')::NUMERIC(12, 2),
-            ((v_item->>'cantidad')::INT * (v_item->>'precio')::NUMERIC(12, 2))
-        );
-    END LOOP;
-
-    RETURN v_id_venta;
-END;
-$$ LANGUAGE plpgsql;
-
-
--- =============================================================================
 -- AUXILIAR: VALIDACIÓN DE USUARIO ACTIVO Y AUTORIZADO POR ROL
 -- Nombre: fn_validar_usuario_autorizado
 -- Retorna: VARCHAR (nombre del rol del usuario validado)
 -- ¿Qué hace?:
 --   - Verifica que el usuario exista, esté activo y que su rol figure en la lista
 --     de roles permitidos. Si no, lanza una excepción y aborta la transacción.
---   - La reutilizan los procedimientos transaccionales del Ciclo 2 como blindaje
---     de autorización dentro del propio motor.
 -- =============================================================================
 CREATE OR REPLACE FUNCTION fn_validar_usuario_autorizado(
     p_id_usuario INT,
@@ -144,25 +50,198 @@ $$ LANGUAGE plpgsql;
 
 
 -- =============================================================================
+-- 1. PROCEDIMIENTO: REGISTRO INTEGRAL DE VENTA ATÓMICA EN POS (CU27, CU28, CU29)
+-- Nombre: sp_registrar_venta
+-- Invocación (Laravel):
+--   DB::select('CALL sp_registrar_venta(?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, NULL)', [...])
+--   o DB::statement('CALL sp_registrar_venta(?, ?, ?, ?, ?, ?::jsonb)', [...])
+-- ¿Qué hace?:
+--   - Recibe el cliente, cajero/vendedor, sesión de caja, método de pago, descuento
+--     comercial autorizado, array JSON de ítems y desglose opcional de cobro multicanal.
+--   - Valida que el carrito contenga al menos un producto.
+--   - Calcula la sumatoria de subtotales y deduce el descuento global.
+--   - Inserta la cabecera en 'notas_ventas' (disparando el Trigger 3 de validación
+--     de caja abierta, Trigger 15.1 de tope de descuento y Trigger 9.1 de acumulación en caja).
+--   - Itera e inserta cada línea en 'detalles_ventas' (disparando el Trigger 1 de
+--     bloqueo FOR UPDATE, validación de stock y descuento físico, y Trigger 15.2 de protección de costo).
+--   - Registra trazabilidad en 'bitacoras_auditorias' (incluyendo rastro de descuento autorizado si aplica).
+-- =============================================================================
+DROP FUNCTION IF EXISTS sp_registrar_venta(INT, INT, INT, VARCHAR, NUMERIC, JSONB);
+
+CREATE OR REPLACE PROCEDURE sp_registrar_venta(
+    p_id_cliente INT,
+    p_id_usuario_vendedor INT,
+    p_id_sesion_caja INT,
+    p_metodo_pago VARCHAR(30),
+    p_descuento_total NUMERIC(12, 2),
+    p_items JSONB, -- Formato esperado: '[{"id_producto": 1, "cantidad": 2, "precio": 150.00}]'
+    p_detalles_pago JSONB DEFAULT NULL,
+    INOUT p_id_venta INT DEFAULT NULL
+)
+AS $$
+DECLARE
+    v_total_bruto NUMERIC(12, 2) := 0.00;
+    v_total_neto NUMERIC(12, 2) := 0.00;
+    v_descuento NUMERIC(12, 2) := COALESCE(p_descuento_total, 0.00);
+    v_item JSONB;
+    v_subtotal NUMERIC(12, 2);
+    v_nro_items INT := 0;
+    v_cliente_nombre VARCHAR(120);
+    v_cliente_tipo VARCHAR(30);
+    v_cliente_desc_max NUMERIC(5, 2);
+BEGIN
+    -- 1. Validar personal autorizado
+    PERFORM fn_validar_usuario_autorizado(
+        p_id_usuario_vendedor,
+        ARRAY['Administrador', 'Vendedor', 'Cajero', 'Bodeguero']
+    );
+
+    -- 2. Validar existencia del cliente
+    SELECT nombre_razon_social, tipo_cliente, descuento_frecuente
+    INTO v_cliente_nombre, v_cliente_tipo, v_cliente_desc_max
+    FROM clientes
+    WHERE id_cliente = p_id_cliente;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Error Smart-DB: El cliente con ID % no existe.', p_id_cliente;
+    END IF;
+
+    -- 3. Validar método de pago multicanal
+    IF p_metodo_pago IS NULL OR p_metodo_pago NOT IN ('Efectivo', 'Transferencia/QR', 'Tarjeta Débito/Crédito', 'Mixto') THEN
+        RAISE EXCEPTION 'Regla Smart-DB: Método de pago "%" no válido. Permitidos: Efectivo, Transferencia/QR, Tarjeta Débito/Crédito, Mixto.', p_metodo_pago;
+    END IF;
+
+    -- 4. Validación preventiva: no permitir ventas vacías
+    IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: No se pueden registrar ventas sin productos en el carrito.';
+    END IF;
+
+    -- 5. Cálculo acumulativo de subtotales
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_nro_items := v_nro_items + 1;
+        IF (v_item->>'cantidad')::INT <= 0 OR (v_item->>'precio')::NUMERIC(12, 2) <= 0 THEN
+            RAISE EXCEPTION 'Regla Smart-DB: Cantidad y precio unitario deben ser mayores a 0 en el ítem #%.', v_nro_items;
+        END IF;
+        v_subtotal := (v_item->>'cantidad')::INT * (v_item->>'precio')::NUMERIC(12, 2);
+        v_total_bruto := v_total_bruto + v_subtotal;
+    END LOOP;
+
+    -- 6. Aplicación y control de descuento comercial
+    IF v_descuento < 0 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El descuento comercial no puede ser negativo.';
+    END IF;
+
+    v_total_neto := v_total_bruto - v_descuento;
+    IF v_total_neto < 0 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El descuento (Bs. %) no puede ser mayor al importe bruto (Bs. %).',
+            v_descuento, v_total_bruto;
+    END IF;
+
+    -- 7. Inserción de cabecera:
+    -- Dispara fn_trg_validar_caja_abierta(), fn_trg_validar_descuento_cabecera() y fn_trg_acumular_venta_caja()
+    INSERT INTO notas_ventas (
+        id_cliente,
+        id_usuario_vendedor,
+        id_sesion_caja,
+        total_venta,
+        descuento_total,
+        metodo_pago,
+        estado
+    ) VALUES (
+        p_id_cliente,
+        p_id_usuario_vendedor,
+        p_id_sesion_caja,
+        v_total_neto,
+        v_descuento,
+        p_metodo_pago,
+        'Completada'
+    ) RETURNING id_venta INTO p_id_venta;
+
+    -- 8. Inserción de renglones:
+    -- Cada INSERT dispara fn_trg_descontar_stock_venta() y fn_trg_validar_margen_costo_venta()
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        INSERT INTO detalles_ventas (
+            id_venta,
+            id_producto,
+            cantidad_vendida,
+            precio_unitario_cobrado,
+            subtotal
+        ) VALUES (
+            p_id_venta,
+            (v_item->>'id_producto')::INT,
+            (v_item->>'cantidad')::INT,
+            (v_item->>'precio')::NUMERIC(12, 2),
+            ((v_item->>'cantidad')::INT * (v_item->>'precio')::NUMERIC(12, 2))
+        );
+    END LOOP;
+
+    -- 9. Auditoría transaccional de la venta
+    INSERT INTO bitacoras_auditorias (
+        id_usuario,
+        modulo_afectado,
+        accion,
+        registro_id,
+        detalle_cambio,
+        ip_origen
+    ) VALUES (
+        p_id_usuario_vendedor,
+        'Ventas / POS',
+        'INSERT',
+        p_id_venta,
+        json_build_object(
+            'id_venta', p_id_venta,
+            'cliente', v_cliente_nombre,
+            'tipo_cliente', v_cliente_tipo,
+            'id_sesion_caja', p_id_sesion_caja,
+            'total_bruto', v_total_bruto,
+            'descuento_total', v_descuento,
+            'total_venta', v_total_neto,
+            'metodo_pago', p_metodo_pago,
+            'cantidad_items', v_nro_items,
+            'desglose_cobro', COALESCE(p_detalles_pago, '{}'::jsonb)
+        )::TEXT,
+        COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+    );
+
+    -- 10. Si se aplicó descuento comercial, dejar rastro específico en bitácora (CU28)
+    IF v_descuento > 0 THEN
+        INSERT INTO bitacoras_auditorias (
+            id_usuario,
+            modulo_afectado,
+            accion,
+            registro_id,
+            detalle_cambio,
+            ip_origen
+        ) VALUES (
+            p_id_usuario_vendedor,
+            'Ventas / Descuentos Comerciales',
+            'DESCUENTO_AUTORIZADO',
+            p_id_venta,
+            json_build_object(
+                'id_venta', p_id_venta,
+                'cliente', v_cliente_nombre,
+                'tipo_cliente', v_cliente_tipo,
+                'descuento_frecuente_cliente_pct', v_cliente_desc_max,
+                'total_bruto', v_total_bruto,
+                'descuento_aplicado_bs', v_descuento,
+                'porcentaje_efectivo', ROUND((v_descuento / NULLIF(v_total_bruto, 0)) * 100.0, 2),
+                'total_neto_cobrado', v_total_neto
+            )::TEXT,
+            COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+        );
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- =============================================================================
 -- 2. PROCEDIMIENTO: RECEPCIÓN DE COMPRA Y ENTRADA A ALMACÉN (CU20 / CU21)
 -- Nombre: sp_registrar_compra
 -- Invocación (Laravel):
 --   DB::select('CALL sp_registrar_compra(?, ?, ?, ?, ?, ?::jsonb, NULL)', [...])
 --   -> devuelve una fila con p_id_compra (ID de la nota de compra generada).
--- ¿Qué hace?:
---   - Valida que el receptor sea un usuario activo con rol Administrador o Bodeguero.
---   - Valida que el proveedor exista y esté ACTIVO (proveedores.estado).
---   - Acepta tipo_pago 'Contado' o 'Crédito' y DERIVA el estado de pago:
---       Contado -> 'Pagado'   |   Crédito -> 'Pendiente' (queda como cuenta por pagar).
---   - Impide registrar dos veces la misma factura para el mismo proveedor
---     (con bloqueo consultivo para evitar condiciones de carrera).
---   - Valida cada ítem (producto existente y activo, cantidad > 0, costo > 0).
---   - Inserta la cabecera en 'notas_compras' y las líneas en 'detalles_compras'.
---     Cada línea dispara el Trigger 2 (fn_trg_incrementar_stock_compra), que suma
---     las unidades a productos.stock_actual. En 'productos' SOLO cambia el stock.
---   - El costo de adquisición queda registrado en detalles_compras.costo_unitario,
---     que es la fuente oficial del historial de costos (CU21).
---   - Registra el evento en 'bitacoras_auditorias'.
 -- =============================================================================
 DROP FUNCTION IF EXISTS sp_registrar_compra(INT, INT, VARCHAR, DATE, VARCHAR, VARCHAR, JSONB);
 
@@ -343,13 +422,15 @@ $$ LANGUAGE plpgsql;
 
 
 -- =============================================================================
--- 3. PROCEDIMIENTO: ANULACIÓN CONTROLADA DE VENTA
+-- 3. PROCEDIMIENTO: ANULACIÓN CONTROLADA DE VENTA (CU31)
 -- Nombre: sp_anular_venta
+-- Invocación (Laravel):
+--   DB::statement('CALL sp_anular_venta(?, ?, ?)', [$idVenta, $idUsuario, $motivo])
 -- ¿Qué hace?:
 --   - Valida la existencia de la venta y que no haya sido anulada previamente.
---   - Exige una justificación textual descriptiva (mínimo 5 letras).
+--   - Exige una justificación textual descriptiva (mínimo 5 caracteres).
 --   - Actualiza el estado a 'Anulada' (desencadena en cascada el Trigger 4 para devolver
---     las piezas al stock, el Trigger de descuento de caja y el Trigger 7 de auditoría).
+--     las piezas al stock, el Trigger 13 de descuento de caja y el Trigger 7 de auditoría).
 -- =============================================================================
 CREATE OR REPLACE PROCEDURE sp_anular_venta(
     p_id_venta INT,
@@ -360,13 +441,19 @@ AS $$
 DECLARE
     v_estado_actual VARCHAR(30);
 BEGIN
-    IF length(trim(p_motivo_anulacion)) < 5 THEN
+    PERFORM fn_validar_usuario_autorizado(
+        p_id_usuario,
+        ARRAY['Administrador', 'Cajero', 'Vendedor', 'Bodeguero']
+    );
+
+    IF p_motivo_anulacion IS NULL OR length(trim(p_motivo_anulacion)) < 5 THEN
         RAISE EXCEPTION 'Regla Smart-DB: La justificación de anulación es obligatoria (mínimo 5 caracteres).';
     END IF;
 
     SELECT estado INTO v_estado_actual
     FROM notas_ventas
-    WHERE id_venta = p_id_venta;
+    WHERE id_venta = p_id_venta
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Error Smart-DB: La venta con ID % no existe.', p_id_venta;
@@ -375,6 +462,9 @@ BEGIN
     IF v_estado_actual = 'Anulada' THEN
         RAISE EXCEPTION 'Operación rechazada: La venta con ID % ya se encuentra anulada.', p_id_venta;
     END IF;
+
+    -- Propaga el usuario que ejecuta la anulación para el Trigger 7 de auditoría
+    PERFORM set_config('app.id_usuario', p_id_usuario::TEXT, true);
 
     -- Esta modificación activa en cadena:
     -- 1. fn_trg_restituir_stock_anulacion() -> Repone unidades a 'productos'
@@ -389,37 +479,68 @@ $$ LANGUAGE plpgsql;
 
 
 -- =============================================================================
--- 4. FUNCIÓN: CONVERSIÓN DE COTIZACIÓN A VENTA DIRECTA
+-- 4. PROCEDIMIENTO: CONVERSIÓN DE COTIZACIÓN A VENTA DIRECTA (CU26)
 -- Nombre: sp_convertir_cotizacion_a_venta
--- Retorna: INT (ID de la nueva venta creada)
+-- Invocación (Laravel):
+--   DB::select('CALL sp_convertir_cotizacion_a_venta(?, ?, ?, ?, ?, ?::jsonb, NULL)', [...])
+--   o DB::statement('CALL sp_convertir_cotizacion_a_venta(?, ?, ?, ?)', [...])
 -- ¿Qué hace?:
 --   - Localiza el presupuesto formal y verifica que no haya caducado.
 --   - Pasa la cotización a 'Concretada/Facturada' (Trigger 12 bloquea si expiró por fecha).
 --   - Genera una 'NotaVenta' y copia automáticamente cada línea de 'detalles_cotizaciones'
 --     hacia 'detalles_ventas', descontando stock y sumando a caja de forma transparente.
+--   - Registra el evento en 'bitacoras_auditorias'.
 -- =============================================================================
-CREATE OR REPLACE FUNCTION sp_convertir_cotizacion_a_venta(
+DROP FUNCTION IF EXISTS sp_convertir_cotizacion_a_venta(INT, INT, INT, VARCHAR);
+
+CREATE OR REPLACE PROCEDURE sp_convertir_cotizacion_a_venta(
     p_id_cotizacion INT,
     p_id_usuario_vendedor INT,
     p_id_sesion_caja INT,
-    p_metodo_pago VARCHAR(30)
+    p_metodo_pago VARCHAR(30),
+    p_descuento_total NUMERIC(12, 2) DEFAULT 0.00,
+    p_detalles_pago JSONB DEFAULT NULL,
+    INOUT p_id_venta INT DEFAULT NULL
 )
-RETURNS INT AS $$
+AS $$
 DECLARE
     v_cotizacion RECORD;
-    v_id_venta INT;
     r_item RECORD;
+    v_descuento NUMERIC(12, 2) := COALESCE(p_descuento_total, 0.00);
+    v_total_neto NUMERIC(12, 2);
 BEGIN
+    PERFORM fn_validar_usuario_autorizado(
+        p_id_usuario_vendedor,
+        ARRAY['Administrador', 'Vendedor', 'Cajero', 'Bodeguero']
+    );
+
+    IF p_metodo_pago IS NULL OR p_metodo_pago NOT IN ('Efectivo', 'Transferencia/QR', 'Tarjeta Débito/Crédito', 'Mixto') THEN
+        RAISE EXCEPTION 'Regla Smart-DB: Método de pago "%" no válido.', p_metodo_pago;
+    END IF;
+
     SELECT * INTO v_cotizacion
     FROM cotizaciones
-    WHERE id_cotizacion = p_id_cotizacion;
+    WHERE id_cotizacion = p_id_cotizacion
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Error Smart-DB: La cotización ID % no existe.', p_id_cotizacion;
     END IF;
 
     IF v_cotizacion.estado <> 'Vigente' THEN
-        RAISE EXCEPTION 'Operación denegada: La cotización se encuentra %, no admite facturación.', v_cotizacion.estado;
+        RAISE EXCEPTION 'Operación denegada: La cotización #% se encuentra en estado "%", no admite conversión a venta.',
+            p_id_cotizacion, v_cotizacion.estado;
+    END IF;
+
+    IF CURRENT_DATE > v_cotizacion.fecha_vencimiento THEN
+        UPDATE cotizaciones SET estado = 'Vencida' WHERE id_cotizacion = p_id_cotizacion;
+        RAISE EXCEPTION 'Regla Smart-DB: La cotización #% expiró el % y no puede convertirse en venta.',
+            p_id_cotizacion, v_cotizacion.fecha_vencimiento;
+    END IF;
+
+    v_total_neto := v_cotizacion.monto_total - v_descuento;
+    IF v_total_neto <= 0 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El total neto a cobrar debe ser mayor a 0.';
     END IF;
 
     -- Cambio de estado (dispara fn_trg_validar_vigencia_cotizacion)
@@ -427,7 +548,7 @@ BEGIN
     SET estado = 'Concretada/Facturada'
     WHERE id_cotizacion = p_id_cotizacion;
 
-    -- Emisión de nota de venta
+    -- Emisión de nota de venta (dispara validación de caja abierta y acumulador)
     INSERT INTO notas_ventas (
         id_cliente,
         id_usuario_vendedor,
@@ -440,13 +561,13 @@ BEGIN
         v_cotizacion.id_cliente,
         p_id_usuario_vendedor,
         p_id_sesion_caja,
-        v_cotizacion.monto_total,
-        0.00,
+        v_total_neto,
+        v_descuento,
         p_metodo_pago,
         'Completada'
-    ) RETURNING id_venta INTO v_id_venta;
+    ) RETURNING id_venta INTO p_id_venta;
 
-    -- Copia de renglones cotizados a venta efectiva (dispara validación de stock)
+    -- Copia de renglones cotizados a venta efectiva (dispara validación de stock y costo)
     FOR r_item IN 
         SELECT id_producto, cantidad, precio_unitario_cotizado, subtotal
         FROM detalles_cotizaciones
@@ -459,7 +580,7 @@ BEGIN
             precio_unitario_cobrado,
             subtotal
         ) VALUES (
-            v_id_venta,
+            p_id_venta,
             r_item.id_producto,
             r_item.cantidad,
             r_item.precio_unitario_cotizado,
@@ -467,65 +588,139 @@ BEGIN
         );
     END LOOP;
 
-    RETURN v_id_venta;
+    -- Auditoría transaccional
+    INSERT INTO bitacoras_auditorias (
+        id_usuario,
+        modulo_afectado,
+        accion,
+        registro_id,
+        detalle_cambio,
+        ip_origen
+    ) VALUES (
+        p_id_usuario_vendedor,
+        'Ventas / Cotizaciones',
+        'CONVERSION_COTIZACION',
+        p_id_cotizacion,
+        json_build_object(
+            'id_cotizacion', p_id_cotizacion,
+            'id_venta_generada', p_id_venta,
+            'id_cliente', v_cotizacion.id_cliente,
+            'monto_cotizado', v_cotizacion.monto_total,
+            'descuento_aplicado', v_descuento,
+            'total_venta_cobrado', v_total_neto,
+            'metodo_pago', p_metodo_pago,
+            'desglose_cobro', COALESCE(p_detalles_pago, '{}'::jsonb)
+        )::TEXT,
+        COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+    );
 END;
 $$ LANGUAGE plpgsql;
 
 
 -- =============================================================================
--- 5. PROCEDIMIENTO: ARQUEO Y CIERRE DE SESIÓN DE CAJA
+-- 5. PROCEDIMIENTO: ARQUEO Y CIERRE DE SESIÓN DE CAJA (CU34)
 -- Nombre: sp_cerrar_caja
+-- Invocación (Laravel):
+--   DB::statement('CALL sp_cerrar_caja(?, ?, ?, ?)', [$idSesion, $montoContado, $obs, $idUsuario])
 -- ¿Qué hace?:
 --   - Valida que la sesión exista y permanezca en estado 'Abierta'.
 --   - Recibe el arqueo físico (`p_monto_real_contado`).
 --   - Actualiza el estado a 'Cerrada' (el Trigger 10 calcula la diferencia contra el
 --     dinero esperado y marca automáticamente el resultado: 'Cuadrada' o 'Con Diferencia').
+--   - Registra el arqueo en 'bitacoras_auditorias'.
 -- =============================================================================
 CREATE OR REPLACE PROCEDURE sp_cerrar_caja(
     p_id_sesion INT,
-    p_monto_real_contado NUMERIC(12, 2)
+    p_monto_real_contado NUMERIC(12, 2),
+    p_observaciones TEXT DEFAULT NULL,
+    p_id_usuario INT DEFAULT NULL
 )
 AS $$
 DECLARE
-    v_estado VARCHAR(20);
+    v_sesion RECORD;
+    v_estado_final VARCHAR(20);
+    v_diferencia_final NUMERIC(12, 2);
 BEGIN
-    SELECT estado INTO v_estado
+    IF p_monto_real_contado IS NULL OR p_monto_real_contado < 0.00 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El monto físico declarado en el arqueo no puede ser negativo.';
+    END IF;
+
+    SELECT * INTO v_sesion
     FROM sesiones_cajas
-    WHERE id_sesion = p_id_sesion;
+    WHERE id_sesion = p_id_sesion
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Error Smart-DB: La sesión de caja con ID % no existe.', p_id_sesion;
     END IF;
 
-    IF v_estado <> 'Abierta' THEN
-        RAISE EXCEPTION 'Operación rechazada: La sesión % ya está cerrada (Estado: %).', p_id_sesion, v_estado;
+    IF v_sesion.estado <> 'Abierta' THEN
+        RAISE EXCEPTION 'Operación rechazada: La sesión % ya está cerrada (Estado: %).', p_id_sesion, v_sesion.estado;
     END IF;
 
     -- Dispara fn_trg_conciliar_cierre_caja()
     UPDATE sesiones_cajas
     SET monto_real_contado = p_monto_real_contado,
         estado = 'Cerrada'
-    WHERE id_sesion = p_id_sesion;
+    WHERE id_sesion = p_id_sesion
+    RETURNING estado, diferencia INTO v_estado_final, v_diferencia_final;
+
+    -- Auditoría transaccional del arqueo y cierre
+    INSERT INTO bitacoras_auditorias (
+        id_usuario,
+        modulo_afectado,
+        accion,
+        registro_id,
+        detalle_cambio,
+        ip_origen
+    ) VALUES (
+        COALESCE(p_id_usuario, v_sesion.id_usuario_cajero),
+        'Tesorería / Caja',
+        'CIERRE_CAJA',
+        p_id_sesion,
+        json_build_object(
+            'id_sesion', p_id_sesion,
+            'id_usuario_cajero', v_sesion.id_usuario_cajero,
+            'monto_inicial', v_sesion.monto_inicial,
+            'monto_esperado_sistema', v_sesion.monto_esperado_sistema,
+            'monto_real_contado', p_monto_real_contado,
+            'diferencia', v_diferencia_final,
+            'estado_arqueo', v_estado_final,
+            'observaciones', COALESCE(trim(p_observaciones), 'Sin observaciones')
+        )::TEXT,
+        COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+    );
 END;
 $$ LANGUAGE plpgsql;
+
+
 -- =============================================================================
--- 6. PROCEDIMIENTO: APERTURA FORMAL DE SESIÓN DE CAJA
+-- 6. PROCEDIMIENTO: APERTURA FORMAL DE SESIÓN DE CAJA (CU32)
 -- Nombre: sp_abrir_caja
--- Retorna: INT (ID de la nueva sesión)
+-- Invocación (Laravel):
+--   DB::select('CALL sp_abrir_caja(?, ?, NULL)', [$idCajero, $montoInicial])
+--   o DB::statement('CALL sp_abrir_caja(?, ?)', [$idCajero, $montoInicial])
 -- ¿Qué hace?:
---   - Valida que el monto inicial no sea negativo.
+--   - Valida que el usuario esté autorizado y el monto inicial no sea negativo.
 --   - Inserta la sesión con estado 'Abierta'.
 --   - El Trigger 8 impide la apertura si el cajero ya tiene una caja abierta.
+--   - Registra el evento en 'bitacoras_auditorias'.
 -- =============================================================================
-CREATE OR REPLACE FUNCTION sp_abrir_caja(
+DROP FUNCTION IF EXISTS sp_abrir_caja(INT, NUMERIC);
+
+CREATE OR REPLACE PROCEDURE sp_abrir_caja(
     p_id_usuario_cajero INT,
-    p_monto_inicial NUMERIC(12, 2)
+    p_monto_inicial NUMERIC(12, 2),
+    INOUT p_id_sesion INT DEFAULT NULL
 )
-RETURNS INT AS $$
-DECLARE
-    v_id_sesion INT;
+AS $$
 BEGIN
-    IF p_monto_inicial < 0.00 THEN
+    PERFORM fn_validar_usuario_autorizado(
+        p_id_usuario_cajero,
+        ARRAY['Administrador', 'Cajero', 'Vendedor']
+    );
+
+    IF p_monto_inicial IS NULL OR p_monto_inicial < 0.00 THEN
         RAISE EXCEPTION 'Regla Smart-DB: El fondo inicial de caja no puede ser negativo.';
     END IF;
 
@@ -538,35 +733,77 @@ BEGIN
         p_id_usuario_cajero,
         p_monto_inicial,
         'Abierta'
-    ) RETURNING id_sesion INTO v_id_sesion;
+    ) RETURNING id_sesion INTO p_id_sesion;
 
-    RETURN v_id_sesion;
+    -- Auditoría transaccional
+    INSERT INTO bitacoras_auditorias (
+        id_usuario,
+        modulo_afectado,
+        accion,
+        registro_id,
+        detalle_cambio,
+        ip_origen
+    ) VALUES (
+        p_id_usuario_cajero,
+        'Tesorería / Caja',
+        'APERTURA_CAJA',
+        p_id_sesion,
+        json_build_object(
+            'id_sesion', p_id_sesion,
+            'id_usuario_cajero', p_id_usuario_cajero,
+            'monto_inicial', p_monto_inicial,
+            'fecha_apertura', CURRENT_TIMESTAMP
+        )::TEXT,
+        COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+    );
 END;
 $$ LANGUAGE plpgsql;
+
+
 -- =============================================================================
--- 7. PROCEDIMIENTO: REGISTRO DE MOVIMIENTO MENOR DE CAJA (GASTOS / INGRESOS EXTRA)
+-- 7. PROCEDIMIENTO: REGISTRO DE MOVIMIENTO MENOR DE CAJA (CU33)
 -- Nombre: sp_registrar_movimiento_caja
--- Retorna: INT (ID del movimiento)
+-- Invocación (Laravel):
+--   DB::select('CALL sp_registrar_movimiento_caja(?, ?, ?, ?, ?, NULL)', [...])
+--   o DB::statement('CALL sp_registrar_movimiento_caja(?, ?, ?, ?)', [...])
 -- ¿Qué hace?:
 --   - Valida que la caja esté abierta y que no se retire más dinero del disponible.
 --   - Inserta el movimiento y dispara el Trigger 9.2 para actualizar el saldo esperado.
+--   - Registra el evento en 'bitacoras_auditorias'.
 -- =============================================================================
-CREATE OR REPLACE FUNCTION sp_registrar_movimiento_caja(
+DROP FUNCTION IF EXISTS sp_registrar_movimiento_caja(INT, VARCHAR, NUMERIC, VARCHAR);
+
+CREATE OR REPLACE PROCEDURE sp_registrar_movimiento_caja(
     p_id_sesion INT,
     p_tipo VARCHAR(30),
     p_monto NUMERIC(12, 2),
-    p_motivo VARCHAR(255)
+    p_motivo VARCHAR(255),
+    p_id_usuario INT DEFAULT NULL,
+    INOUT p_id_movimiento INT DEFAULT NULL
 )
-RETURNS INT AS $$
+AS $$
 DECLARE
-    v_id_movimiento INT;
     v_estado VARCHAR(20);
     v_saldo_actual NUMERIC(12, 2);
+    v_cajero INT;
 BEGIN
-    SELECT estado, monto_esperado_sistema 
-    INTO v_estado, v_saldo_actual
+    IF p_tipo IS NULL OR p_tipo NOT IN ('Ingreso Extra', 'Retiro Menor') THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El tipo de movimiento "%" no es válido (Permitidos: Ingreso Extra, Retiro Menor).', p_tipo;
+    END IF;
+
+    IF p_monto IS NULL OR p_monto <= 0.00 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: El monto del movimiento de caja debe ser mayor a Bs. 0.00.';
+    END IF;
+
+    IF p_motivo IS NULL OR length(trim(p_motivo)) < 4 THEN
+        RAISE EXCEPTION 'Regla Smart-DB: Debe especificar el concepto o comprobante del movimiento (mínimo 4 caracteres).';
+    END IF;
+
+    SELECT estado, monto_esperado_sistema, id_usuario_cajero
+    INTO v_estado, v_saldo_actual, v_cajero
     FROM sesiones_cajas
-    WHERE id_sesion = p_id_sesion;
+    WHERE id_sesion = p_id_sesion
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Regla Smart-DB: La sesión de caja % no existe.', p_id_sesion;
@@ -577,7 +814,7 @@ BEGIN
     END IF;
 
     IF p_tipo = 'Retiro Menor' AND p_monto > v_saldo_actual THEN
-        RAISE EXCEPTION 'Regla Smart-DB: Saldo insuficiente en caja. Disponible: Bs. %, Retiro solicitado: Bs. %', 
+        RAISE EXCEPTION 'Regla Smart-DB: Saldo insuficiente en caja. Disponible: Bs. %, Retiro solicitado: Bs. %',
             v_saldo_actual, p_monto;
     END IF;
 
@@ -592,43 +829,87 @@ BEGIN
         p_tipo,
         p_monto,
         trim(p_motivo)
-    ) RETURNING id_movimiento INTO v_id_movimiento;
+    ) RETURNING id_movimiento INTO p_id_movimiento;
 
-    RETURN v_id_movimiento;
+    -- Auditoría transaccional
+    INSERT INTO bitacoras_auditorias (
+        id_usuario,
+        modulo_afectado,
+        accion,
+        registro_id,
+        detalle_cambio,
+        ip_origen
+    ) VALUES (
+        COALESCE(p_id_usuario, v_cajero),
+        'Tesorería / Caja',
+        'INSERT',
+        p_id_movimiento,
+        json_build_object(
+            'id_movimiento', p_id_movimiento,
+            'id_sesion', p_id_sesion,
+            'tipo', p_tipo,
+            'monto', p_monto,
+            'motivo', trim(p_motivo),
+            'saldo_anterior', v_saldo_actual,
+            'saldo_resultante', CASE WHEN p_tipo = 'Ingreso Extra' THEN v_saldo_actual + p_monto ELSE v_saldo_actual - p_monto END
+        )::TEXT,
+        COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+    );
 END;
 $$ LANGUAGE plpgsql;
+
+
 -- =============================================================================
--- 8. FUNCIÓN: REGISTRO DE COTIZACIÓN FORMAL CON ÍTEMS EN JSON
+-- 8. PROCEDIMIENTO: REGISTRO DE COTIZACIÓN FORMAL CON ÍTEMS EN JSON (CU24)
 -- Nombre: sp_registrar_cotizacion
--- Retorna: INT (ID de la cotización generada)
+-- Invocación (Laravel):
+--   DB::select('CALL sp_registrar_cotizacion(?, ?, ?, ?::jsonb, NULL)', [...])
+--   o DB::statement('CALL sp_registrar_cotizacion(?, ?, ?, ?::jsonb)', [...])
 -- ¿Qué hace?:
---   - Recibe cliente, vendedor, días de validez y los repuestos en JSON.
+--   - Recibe cliente, vendedor/usuario, días de validez y los repuestos en JSON.
 --   - Calcula la fecha de vencimiento y el monto total presupuestado.
 --   - Inserta cabecera y detalles en una sola transacción atómica.
+--   - Registra el evento en 'bitacoras_auditorias'.
 -- =============================================================================
-CREATE OR REPLACE FUNCTION sp_registrar_cotizacion(
+DROP FUNCTION IF EXISTS sp_registrar_cotizacion(INT, INT, INT, JSONB);
+
+CREATE OR REPLACE PROCEDURE sp_registrar_cotizacion(
     p_id_cliente INT,
     p_id_usuario INT,
     p_dias_vigencia INT,
-    p_items JSONB -- Formato: '[{"id_producto": 1, "cantidad": 2, "precio": 150.00}]'
+    p_items JSONB, -- Formato: '[{"id_producto": 1, "cantidad": 2, "precio": 150.00}]'
+    INOUT p_id_cotizacion INT DEFAULT NULL
 )
-RETURNS INT AS $$
+AS $$
 DECLARE
-    v_id_cotizacion INT;
     v_monto_total NUMERIC(12, 2) := 0.00;
     v_item JSONB;
+    v_nro_items INT := 0;
+    v_cliente_nombre VARCHAR(120);
 BEGIN
-    IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
+    SELECT nombre_razon_social INTO v_cliente_nombre
+    FROM clientes
+    WHERE id_cliente = p_id_cliente;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Error Smart-DB: El cliente con ID % no existe.', p_id_cliente;
+    END IF;
+
+    IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
         RAISE EXCEPTION 'Regla Smart-DB: No se puede generar una cotización vacía.';
     END IF;
 
-    IF p_dias_vigencia <= 0 THEN
+    IF p_dias_vigencia IS NULL OR p_dias_vigencia <= 0 THEN
         RAISE EXCEPTION 'Regla Smart-DB: Los días de vigencia deben ser mayores a 0.';
     END IF;
 
     -- Cálculo del importe total cotizado
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
+        v_nro_items := v_nro_items + 1;
+        IF (v_item->>'cantidad')::INT <= 0 OR (v_item->>'precio')::NUMERIC(12, 2) <= 0 THEN
+            RAISE EXCEPTION 'Regla Smart-DB: Cantidad y precio unitario deben ser mayores a 0 en el ítem #%.', v_nro_items;
+        END IF;
         v_monto_total := v_monto_total + ((v_item->>'cantidad')::INT * (v_item->>'precio')::NUMERIC(12, 2));
     END LOOP;
 
@@ -645,7 +926,7 @@ BEGIN
         CURRENT_DATE + p_dias_vigencia,
         v_monto_total,
         'Vigente'
-    ) RETURNING id_cotizacion INTO v_id_cotizacion;
+    ) RETURNING id_cotizacion INTO p_id_cotizacion;
 
     -- Inserción de detalles
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
@@ -657,7 +938,7 @@ BEGIN
             precio_unitario_cotizado,
             subtotal
         ) VALUES (
-            v_id_cotizacion,
+            p_id_cotizacion,
             (v_item->>'id_producto')::INT,
             (v_item->>'cantidad')::INT,
             (v_item->>'precio')::NUMERIC(12, 2),
@@ -665,17 +946,37 @@ BEGIN
         );
     END LOOP;
 
-    RETURN v_id_cotizacion;
+    -- Auditoría transaccional
+    INSERT INTO bitacoras_auditorias (
+        id_usuario,
+        modulo_afectado,
+        accion,
+        registro_id,
+        detalle_cambio,
+        ip_origen
+    ) VALUES (
+        p_id_usuario,
+        'Ventas / Cotizaciones',
+        'INSERT',
+        p_id_cotizacion,
+        json_build_object(
+            'id_cotizacion', p_id_cotizacion,
+            'cliente', v_cliente_nombre,
+            'dias_vigencia', p_dias_vigencia,
+            'fecha_vencimiento', CURRENT_DATE + p_dias_vigencia,
+            'monto_total', v_monto_total,
+            'cantidad_items', v_nro_items
+        )::TEXT,
+        COALESCE(NULLIF(current_setting('app.ip_origen', true), ''), '127.0.0.1')
+    );
 END;
 $$ LANGUAGE plpgsql;
+
+
 -- =============================================================================
 -- 9. FUNCIÓN: MOTOR DE BÚSQUEDA TÉCNICA MULTICRITERIO PARA MOSTRADOR (POS)
 -- Nombre: fn_buscar_repuestos
 -- Retorna: TABLE con repuestos coincidentes, stock y ubicación en almacén
--- ¿Qué hace?:
---   - Busca por texto libre (código interno, OEM o descripción).
---   - Cruza con marcas alternativas en 'codigos_alternativos'.
---   - Filtra opcionalmente por marca, modelo y año del vehículo.
 -- =============================================================================
 CREATE OR REPLACE FUNCTION fn_buscar_repuestos(
     p_criterio VARCHAR(100) DEFAULT NULL,    -- Código OEM, alternativo o nombre
@@ -721,20 +1022,13 @@ BEGIN
       AND (p_anio_vehiculo IS NULL OR (p_anio_vehiculo >= v.anio_inicio AND p_anio_vehiculo <= v.anio_fin));
 END;
 $$ LANGUAGE plpgsql;
+
+
 -- =============================================================================
 -- 10. PROCEDIMIENTO BLINDADO: LIQUIDACIÓN DE COMPRAS A CRÉDITO (CU22)
 -- Nombre: sp_liquidar_pago_compra
 -- Invocación (Laravel):
 --   DB::statement('CALL sp_liquidar_pago_compra(?, ?)', [$idCompra, $idUsuario])
--- ¿Qué hace?:
---   - Solo un Administrador activo puede liquidar cuentas por pagar.
---   - Bloquea la fila de la compra (FOR UPDATE) para impedir doble liquidación concurrente.
---   - Valida explícitamente, en este orden:
---       1. Que la compra exista.
---       2. Que no esté 'Anulado'.
---       3. Que sea tipo_pago = 'Crédito' (las compras al Contado se pagan al recibirse).
---       4. Que esté en estado_pago = 'Pendiente' (si ya está 'Pagado' se rechaza).
---   - Cambia estado_pago a 'Pagado' y registra la liquidación en la bitácora.
 -- =============================================================================
 DROP PROCEDURE IF EXISTS sp_liquidar_pago_compra(INT);
 
@@ -751,8 +1045,8 @@ DECLARE
     v_fecha_compra DATE;
     v_proveedor VARCHAR(120);
 BEGIN
-    -- 1. Administrador o Cajero activo
-    PERFORM fn_validar_usuario_autorizado(p_id_usuario, ARRAY['Administrador', 'Cajero']);
+    -- 1. Administrador, Cajero o Bodeguero activo
+    PERFORM fn_validar_usuario_autorizado(p_id_usuario, ARRAY['Administrador', 'Cajero', 'Bodeguero']);
 
     -- 2. Bloqueo pesimista de la orden de compra
     SELECT nc.tipo_pago, nc.estado_pago, nc.numero_factura_nota, nc.monto_total, nc.fecha_compra, pr.razon_social
@@ -819,12 +1113,6 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 -- 11. FUNCIÓN: RESUMEN ANALÍTICO GERENCIAL DEL DÍA / TURNO (DASHBOARD)
 -- Nombre: fn_obtener_metricas_pos
--- Retorna: TABLE con totales vendidos, margen de ganancia real y estado de stock
--- ¿Qué hace?:
---   - Consolida en una sola lectura: total vendido en el rango, margen bruto generado
---     (precio cobrado - costo de adquisición en compras), tickets emitidos y piezas
---     en punto de quiebre (stock_actual <= stock_minimo).
---   - Evita que Laravel procese arrays gigantescos en PHP.
 -- =============================================================================
 CREATE OR REPLACE FUNCTION fn_obtener_metricas_pos(
     p_fecha DATE DEFAULT CURRENT_DATE
@@ -851,31 +1139,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
-
-
 -- =============================================================================
 -- 13. PROCEDIMIENTO: AJUSTES MANUALES Y SALIDAS POR USO INTERNO (CU17 / CU18)
 -- Nombre: sp_registrar_ajuste_inventario
 -- Invocación (Laravel):
 --   DB::select('CALL sp_registrar_ajuste_inventario(?, ?, ?, ?, ?, NULL, NULL)', [...])
---   -> devuelve una fila con p_id_ajuste y p_stock_resultante.
--- Semántica de p_cantidad según p_tipo_ajuste:
---   - 'Merma', 'Pérdida/Extravío', 'Devolución Dañada', 'Uso Interno':
---       p_cantidad = unidades a DESCONTAR (entero positivo). Se guarda en negativo.
---   - 'Conteo Físico':
---       p_cantidad = stock REAL contado en almacén (>= 0). Se guarda la diferencia
---       (contado - sistema), que puede ser positiva (sobrante) o negativa (faltante).
--- ¿Qué hace?:
---   - Valida usuario activo con rol Administrador o Bodeguero.
---   - Valida tipo, cantidad y motivo (mínimo 10 caracteres, según CU17).
---   - Bloquea la fila del producto (FOR UPDATE) y verifica que el stock resultante
---     no sea negativo.
---   - Inserta en 'ajustes_inventario' con la cantidad firmada. El Trigger 5
---     (fn_trg_aplicar_ajuste_inventario) aplica la diferencia a productos.stock_actual
---     en la misma transacción; por eso el procedimiento NO actualiza el stock
---     directamente (evita el doble descuento).
---   - Registra el evento en 'bitacoras_auditorias'.
 -- =============================================================================
 CREATE OR REPLACE PROCEDURE sp_registrar_ajuste_inventario(
     p_id_producto INT,

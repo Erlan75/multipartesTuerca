@@ -55,9 +55,9 @@ INSERT INTO sesiones_cajas (id_usuario_cajero, monto_inicial, estado)
 VALUES (1, 500.00, 'Abierta');
 
 --================================================================================================
-SELECT sp_registrar_venta(
+CALL sp_registrar_venta(
     2,                                             -- id_cliente (Taller Mecánico El Pistón)
-    2,                                             -- id_usuario_vendedor (Jorge Justiniano)
+    2,                                             -- id_usuario_vendedor (Cristhian Rojas)
     2,                                             -- id_sesion_caja (Sesión 2 activa)
     'Transferencia/QR'::VARCHAR,                   -- metodo_pago
     20.00::NUMERIC,                                -- p_descuento_total (Bs. 20 de rebaja)
@@ -105,7 +105,7 @@ WHERE id_sesion = 2;
 
 CALL sp_anular_venta(
     12,                                                                     -- p_id_venta
-    2,                                                                      -- p_id_usuario (Jorge Justiniano)
+    2,                                                                      -- p_id_usuario
     'Devolución total: cliente se equivocó de código de bujía en mostrador'  -- p_motivo_anulacion
 );
 
@@ -166,11 +166,11 @@ INSERT INTO ajustes_inventario (
     motivo
 ) VALUES (
     3, 
-    1, -- ID del Administrador / Don Carlos
+    1, -- ID del Administrador
     -1, 
     'Merma', 
     'Autoconsumo: Mantenimiento correctivo de frenos de la vagoneta de reparto de la tienda'
 );
 
-select * from  productos
-select * from ajuste_inventario
+select * from productos
+select * from ajustes_inventario

@@ -8,7 +8,16 @@
     <meta name="description" content="Sistema de gestión comercial automotriz - Multipartes El Tuerca, Santa Cruz">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            corePlugins: {
+                preflight: false,
+            }
+        }
+    </script>
     <style>
         :root {
             --mac-bg: #F5F7FB;
@@ -677,12 +686,36 @@
         </a>
         @endif
 
-        {{-- 5. CAJA Y FINANZAS (Administrador, Cajero, Bodeguero) --}}
+        {{-- 5. VENTAS, POS, COTIZACIONES Y CLIENTES (Administrador, Vendedor, Cajero) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Vendedor', 'Cajero']))
+        <div class="nav-section">Comercial y Punto de Venta</div>
+        <a href="{{ route('ventas.pos') }}" class="nav-link {{ request()->routeIs('ventas.pos') || request()->routeIs('ventas.create') ? 'active' : '' }}">
+            <i class="bi bi-cart-check"></i> Punto de Venta (POS)
+        </a>
+        <a href="{{ route('ventas.index') }}" class="nav-link {{ request()->routeIs('ventas.index') || request()->routeIs('ventas.ticket') || request()->routeIs('ventas.show') ? 'active' : '' }}">
+            <i class="bi bi-receipt-cutoff"></i> Notas de Venta
+        </a>
+        <a href="{{ route('cotizaciones.index') }}" class="nav-link {{ request()->routeIs('cotizaciones.*') ? 'active' : '' }}">
+            <i class="bi bi-file-earmark-Spreadsheet"></i> Cotizaciones y Proformas
+        </a>
+        <a href="{{ route('clientes.index') }}" class="nav-link {{ request()->routeIs('clientes.*') ? 'active' : '' }}">
+            <i class="bi bi-person-vcard"></i> Clientes y Talleres
+        </a>
+        @endif
+
+        {{-- 6. CAJA Y FINANZAS (Administrador, Cajero, Bodeguero, Vendedor) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero', 'Bodeguero', 'Vendedor']))
+        <div class="nav-section">Tesorería y Finanzas</div>
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero', 'Vendedor']))
+        <a href="{{ route('caja.index') }}" class="nav-link {{ request()->routeIs('caja.*') ? 'active' : '' }}">
+            <i class="bi bi-cash-coin"></i> Sesiones y Arqueo de Caja
+        </a>
+        @endif
         @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero', 'Bodeguero']))
-        <div class="nav-section">Caja y Finanzas</div>
         <a href="{{ route('compras.cuentas-por-pagar') }}" class="nav-link {{ request()->routeIs('compras.cuentas-por-pagar') ? 'active' : '' }}">
             <i class="bi bi-wallet2"></i> Cuentas por Pagar
         </a>
+        @endif
         @endif
 
         {{-- 6. ENLACE AL CATÁLOGO PÚBLICO --}}

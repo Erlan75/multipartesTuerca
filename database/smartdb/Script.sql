@@ -2,7 +2,7 @@
 -- BASE DE DATOS: SISTEMA MULTIPARTES EL TUERCA
 -- MOTOR: PostgreSQL
 -- =============================================================================
--- HISTORIAL DE CAMBIOS ESTRUCTURALES Y CONSOLIDACIÓN TOTAL DDL (CICLO 1 Y CICLO 2)
+-- HISTORIAL DE CAMBIOS ESTRUCTURALES Y CONSOLIDACIÓN TOTAL DDL (CICLOS 1, 2 Y 3)
 -- -----------------------------------------------------------------------------
 -- [Ciclo 1 - Seguridad]
 --   * bitacoras_auditorias.id_usuario admite NULL (login fallido de usuarios inexistentes).
@@ -13,6 +13,8 @@
 --   * proveedores.estado BOOLEAN NOT NULL DEFAULT TRUE (CU19: baja lógica nativa).
 --   * ajustes_inventario.chk_ajuste_tipo nativo con 'Uso Interno' (CU17/CU18).
 --   * usuarios.chk_usuario_password_hash CHECK (length(password_hash) >= 60).
+-- [Ciclo 3 - Ventas, Cotizaciones, POS y Tesorería/Caja]
+--   * chk_bitacora_accion ampliado con acciones operativas de Caja, Cotizaciones y POS.
 -- =============================================================================
 
 -- Limpieza preventiva si se ejecuta en pruebas
@@ -378,7 +380,8 @@ CREATE TABLE bitacoras_auditorias (
         'INSERT', 'UPDATE', 'DELETE', 'ANULACION', 'LOGIN', 'LOGOUT',
         'LOGIN_FALLIDO', 'CUENTA_BLOQUEADA', 'LOGIN_BLOQUEADO',
         'PASSWORD_RESET_SOLICITUD', 'PASSWORD_RESET_EXITOSO', 'PASSWORD_CAMBIO_PERFIL',
-        'PASSWORD_MODIFICADO', 'REGISTRO_CLIENTE'
+        'PASSWORD_MODIFICADO', 'REGISTRO_CLIENTE',
+        'APERTURA_CAJA', 'CIERRE_CAJA', 'CONVERSION_COTIZACION', 'DESCUENTO_AUTORIZADO'
     ))
 );
 CREATE INDEX idx_bitacora_fecha ON bitacoras_auditorias (fecha_hora);

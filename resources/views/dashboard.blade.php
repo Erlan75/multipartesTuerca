@@ -136,6 +136,99 @@
         </div>
     </div>
     @endif
+
+    @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Vendedor', 'Cajero']))
+    {{-- Card: Punto de Venta y Notas de Venta --}}
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card-dark p-4 h-100">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div style="width:45px;height:45px;background:#ECFDF5;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-cart-check" style="font-size:1.2rem;color:#059669;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0" style="color:#1E293B;font-weight:600;">Punto de Venta (POS)</h6>
+                    <small style="color:#64748B;">Ventas y facturación</small>
+                </div>
+            </div>
+            <p style="font-size:2rem;font-weight:700;color:#1E293B;margin:0;">
+                {{ \App\Models\NotaVenta::where('estado', 'Completada')->count() }}
+            </p>
+            <small style="color:#64748B;">ventas completadas</small>
+            <a href="{{ route('ventas.pos') }}" class="btn btn-tuerca w-100 mt-3">
+                <i class="bi bi-cart-plus me-1"></i> Abrir POS
+            </a>
+        </div>
+    </div>
+
+    {{-- Card: Cotizaciones --}}
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card-dark p-4 h-100">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div style="width:45px;height:45px;background:#EFF6FF;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-file-earmark-text" style="font-size:1.2rem;color:#2563EB;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0" style="color:#1E293B;font-weight:600;">Cotizaciones</h6>
+                    <small style="color:#64748B;">Proformas y vigencias</small>
+                </div>
+            </div>
+            <p style="font-size:2rem;font-weight:700;color:#1E293B;margin:0;">
+                {{ \App\Models\Cotizacion::count() }}
+            </p>
+            <small style="color:#64748B;">proformas emitidas</small>
+            <a href="{{ route('cotizaciones.index') }}" class="btn btn-outline-tuerca w-100 mt-3">
+                <i class="bi bi-arrow-right me-1"></i> Ver Bandeja
+            </a>
+        </div>
+    </div>
+
+    {{-- Card: Clientes y Talleres --}}
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card-dark p-4 h-100">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div style="width:45px;height:45px;background:#F5F3FF;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-person-vcard" style="font-size:1.2rem;color:#7C3AED;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0" style="color:#1E293B;font-weight:600;">Clientes y Talleres</h6>
+                    <small style="color:#64748B;">Cartera comercial</small>
+                </div>
+            </div>
+            <p style="font-size:2rem;font-weight:700;color:#1E293B;margin:0;">
+                {{ \App\Models\Cliente::count() }}
+            </p>
+            <small style="color:#64748B;">clientes registrados</small>
+            <a href="{{ route('clientes.index') }}" class="btn btn-outline-tuerca w-100 mt-3">
+                <i class="bi bi-arrow-right me-1"></i> Gestionar
+            </a>
+        </div>
+    </div>
+
+    {{-- Card: Tesorería y Caja --}}
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="card-dark p-4 h-100">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div style="width:45px;height:45px;background:#FFFBEB;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-cash-coin" style="font-size:1.2rem;color:#D97706;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0" style="color:#1E293B;font-weight:600;">Sesiones de Caja</h6>
+                    <small style="color:#64748B;">Apertura y arqueo</small>
+                </div>
+            </div>
+            @php
+                $cajaActiva = \App\Models\SesionCaja::where('estado', 'Abierta')->first();
+            @endphp
+            <p style="font-size:1.35rem;font-weight:700;color:{{ $cajaActiva ? '#059669' : '#D97706' }};margin:0.35rem 0;">
+                {{ $cajaActiva ? 'ABIERTA (#' . $cajaActiva->id_sesion . ')' : 'CERRADA' }}
+            </p>
+            <small style="color:#64748B;">{{ $cajaActiva ? 'Turno activo en curso' : 'Sin turno abierto' }}</small>
+            <a href="{{ route('caja.index') }}" class="btn btn-outline-tuerca w-100 mt-3">
+                <i class="bi bi-arrow-right me-1"></i> Ir a Tesorería
+            </a>
+        </div>
+    </div>
+    @endif
 </div>
 
 {{-- ═══ SECCIÓN INFERIOR: 2 COLUMNAS ═══ --}}
