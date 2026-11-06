@@ -793,11 +793,410 @@
         </div>
     </div>
 
+    {{-- ═══════════════════════════════════════════════════════════════════════════
+         ASISTENTE INTELIGENTE MULTIMODAL DE VOZ Y TEXTO (VOICE-TO-SQL)
+    ═══════════════════════════════════════════════════════════════════════════ --}}
+    <style>
+        @keyframes pulseMicWave {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.65); transform: scale(1); }
+            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); transform: scale(1.06); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
+        }
+        .ai-mic-listening {
+            background: linear-gradient(135deg, #EF4444, #DC2626) !important;
+            color: #ffffff !important;
+            border-color: #DC2626 !important;
+            animation: pulseMicWave 1.4s infinite;
+        }
+        .ai-widget-panel {
+            position: fixed;
+            bottom: 90px;
+            right: 24px;
+            width: 420px;
+            max-width: calc(100vw - 32px);
+            height: 560px;
+            max-height: calc(100vh - 120px);
+            background: #ffffff;
+            border: 1px solid #CBD5E1;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22), 0 4px 16px rgba(0, 122, 255, 0.10);
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+        .ai-widget-panel.open {
+            display: flex;
+        }
+        .ai-fab-btn {
+            position: fixed;
+            bottom: 22px;
+            right: 24px;
+            z-index: 9999;
+            height: 54px;
+            padding: 0 20px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #0F172A 0%, #0055D4 100%);
+            color: #ffffff;
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 10px 25px rgba(0, 85, 212, 0.35);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 0.86rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .ai-fab-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 30px rgba(0, 85, 212, 0.45);
+        }
+        .ai-chip {
+            background: #F1F5F9;
+            border: 1px solid #E2E8F0;
+            color: #334155;
+            border-radius: 999px;
+            padding: 5px 11px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .ai-chip:hover {
+            background: #EFF6FF;
+            border-color: #93C5FD;
+            color: #1D4ED8;
+        }
+        @media print {
+            .ai-fab-btn, .ai-widget-panel { display: none !important; }
+        }
+    </style>
+
+    <!-- Botón Flotante Principal -->
+    <button type="button" id="aiAssistantFab" class="ai-fab-btn" onclick="toggleAiAssistant()" title="Asistente Inteligente por Voz y Texto">
+        <i class="fa-solid fa-microphone-lines text-base text-sky-300"></i>
+        <span>Asistente El Tuerca</span>
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    </button>
+
+    <!-- Ventana Flotante del Asistente -->
+    <div id="aiAssistantPanel" class="ai-widget-panel" aria-live="polite">
+        <!-- Cabecera -->
+        <div class="px-4 py-3 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 text-white flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-sky-300">
+                    <i class="fa-solid fa-robot text-base"></i>
+                </div>
+                <div>
+                    <div class="font-bold text-sm leading-tight">Asistente Inteligente El Tuerca</div>
+                    <div class="text-[11px] text-slate-300 flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span id="aiStatusSubtitle">Consultas por voz o texto en tiempo real</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button type="button" id="aiMuteBtn" onclick="toggleAiVoiceMute()"
+                        class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border-0 transition"
+                        title="Activar / Silenciar respuesta por voz">
+                    <i id="aiMuteIcon" class="fa-solid fa-volume-high text-xs"></i>
+                </button>
+                <button type="button" onclick="toggleAiAssistant()"
+                        class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border-0 transition"
+                        title="Cerrar asistente">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chips de Sugerencias Rápidas -->
+        <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto" style="scrollbar-width: thin;">
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Qué repuestos están en stock crítico?')">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i>Stock crítico
+            </button>
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Buscar amortiguador para Vitara')">
+                <i class="fa-solid fa-car text-blue-600 mr-1"></i>Amortiguador Vitara
+            </button>
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Cuánto se vendió hoy?')">
+                <i class="fa-solid fa-cash-register text-emerald-600 mr-1"></i>Ventas de hoy
+            </button>
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Deudas pendientes a proveedores')">
+                <i class="fa-solid fa-file-invoice-dollar text-rose-500 mr-1"></i>Cuentas por pagar
+            </button>
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Ubicación y stock de pastillas de freno')">
+                <i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i>Ubicación pastillas
+            </button>
+        </div>
+
+        <!-- Historial de Conversación -->
+        <div id="aiChatMessages" class="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-50/50 text-xs">
+            <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-700">
+                <div class="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info text-blue-600"></i>
+                    Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}
+                </div>
+                <p class="mb-0 leading-relaxed">
+                    Soy tu asistente de consulta rápida. Puedes <strong>hablar por micrófono</strong> o escribir para consultar stock, ubicación en pasillo/estante/gaveta, compatibilidad vehicular, cotizaciones, ventas o cuentas por pagar.
+                </p>
+            </div>
+        </div>
+
+        <!-- Barra de Entrada de Texto y Micrófono -->
+        <form id="aiChatForm" onsubmit="manejarEnvioAi(event)" class="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+            <button type="button" id="aiMicBtn" onclick="iniciarReconocimientoVoz()"
+                    class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center border border-slate-300 transition flex-shrink-0"
+                    title="Hablar por micrófono (Español)">
+                <i id="aiMicIcon" class="fa-solid fa-microphone text-sm"></i>
+            </button>
+            <input type="text" id="aiQueryInput" maxlength="400" autocomplete="off"
+                   placeholder="Escribe o pulsa el micrófono para hablar..."
+                   class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600">
+            <button type="submit" id="aiSendBtn"
+                    class="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center border-0 shadow-sm transition flex-shrink-0"
+                    title="Enviar consulta">
+                <i class="fa-solid fa-paper-plane text-xs"></i>
+            </button>
+        </form>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
+        }
+
+        // ── Lógica del Asistente Multimodal (Voice-to-SQL + Web Speech API) ──
+        let aiVoiceMuted = false;
+        let aiRecognition = null;
+        let aiIsListening = false;
+
+        function toggleAiAssistant() {
+            const panel = document.getElementById('aiAssistantPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) {
+                setTimeout(() => document.getElementById('aiQueryInput')?.focus(), 120);
+            } else if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function toggleAiVoiceMute() {
+            aiVoiceMuted = !aiVoiceMuted;
+            const icon = document.getElementById('aiMuteIcon');
+            if (aiVoiceMuted) {
+                icon.className = 'fa-solid fa-volume-xmark text-xs text-rose-300';
+                if (window.speechSynthesis) window.speechSynthesis.cancel();
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-xs';
+            }
+        }
+
+        function enviarSugerenciaAi(texto) {
+            const input = document.getElementById('aiQueryInput');
+            input.value = texto;
+            ejecutarConsultaAi(texto);
+        }
+
+        function manejarEnvioAi(e) {
+            e.preventDefault();
+            const input = document.getElementById('aiQueryInput');
+            const texto = (input.value || '').trim();
+            if (!texto) return;
+            input.value = '';
+            ejecutarConsultaAi(texto);
+        }
+
+        function agregarBurbujaUsuario(texto) {
+            const chat = document.getElementById('aiChatMessages');
+            const div = document.createElement('div');
+            div.className = 'flex justify-end';
+            div.innerHTML = `
+                <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5 max-w-[85%] shadow-sm leading-relaxed">
+                    ${escaparHtmlAi(texto)}
+                </div>
+            `;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function agregarBurbujaRespuesta(data) {
+            const chat = document.getElementById('aiChatMessages');
+            const div = document.createElement('div');
+            div.className = 'bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-800 space-y-2';
+
+            const badgeOrigen = data.origen === 'gemini'
+                ? '<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">IA Gemini SQL</span>'
+                : '<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">Smart-DB Directo</span>';
+
+            let tablaHtml = '';
+            if (Array.isArray(data.datos_resumen) && data.datos_resumen.length > 0) {
+                const cols = Object.keys(data.datos_resumen[0]);
+                const ths = cols.map(c => `<th class="py-1.5 px-2 bg-slate-100 text-slate-600 font-bold text-[10px] uppercase whitespace-nowrap border-b border-slate-200">${escaparHtmlAi(c.replace(/_/g, ' '))}</th>`).join('');
+                const trs = data.datos_resumen.slice(0, 8).map(row => {
+                    const tds = cols.map(c => `<td class="py-1.5 px-2 border-b border-slate-100 text-[11px] whitespace-nowrap">${escaparHtmlAi(String(row[c] ?? '-'))}</td>`).join('');
+                    return `<tr>${tds}</tr>`;
+                }).join('');
+
+                tablaHtml = `
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl mt-2">
+                        <table class="w-full text-left border-collapse">
+                            <thead><tr>${ths}</tr></thead>
+                            <tbody>${trs}</tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="font-bold text-slate-900 text-[11px] flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-blue-600"></i> Respuesta Ejecutiva
+                    </span>
+                    ${badgeOrigen}
+                </div>
+                <p class="mb-0 leading-relaxed text-slate-700">${escaparHtmlAi(data.texto_pantalla || '')}</p>
+                ${tablaHtml}
+            `;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        async function ejecutarConsultaAi(consultaTexto) {
+            agregarBurbujaUsuario(consultaTexto);
+
+            const subtitle = document.getElementById('aiStatusSubtitle');
+            subtitle.textContent = 'Consultando base de datos PostgreSQL...';
+
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const resp = await fetch("{{ route('asistente.consultar') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf
+                    },
+                    body: JSON.stringify({ consulta: consultaTexto })
+                });
+
+                const data = await resp.json();
+                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+
+                agregarBurbujaRespuesta(data);
+                hablarRespuestaEnEspanol(data.texto_voz || data.texto_pantalla || '');
+            } catch (err) {
+                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                agregarBurbujaRespuesta({
+                    origen: 'local',
+                    texto_pantalla: 'No se pudo conectar con el servidor en este instante. Verifica tu sesión e intenta nuevamente.',
+                    datos_resumen: []
+                });
+            }
+        }
+
+        function hablarRespuestaEnEspanol(textoBruto) {
+            if (aiVoiceMuted || !('speechSynthesis' in window) || !textoBruto) return;
+
+            window.speechSynthesis.cancel();
+
+            // Limpiar símbolos Markdown y normalizar abreviaturas monetarias
+            const textoLimpio = String(textoBruto)
+                .replace(/[\*\#\_`~>]/g, '')
+                .replace(/\bBs\.?\s*/gi, 'bolivianos ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const utterance = new SpeechSynthesisUtterance(textoLimpio);
+            utterance.lang = 'es-BO';
+            utterance.rate = 1.02;
+            utterance.pitch = 1.0;
+
+            const voces = window.speechSynthesis.getVoices();
+            if (voces && voces.length > 0) {
+                const vozEs = voces.find(v => v.lang && (v.lang.toLowerCase().startsWith('es-bo') || v.lang.toLowerCase().startsWith('es-419') || v.lang.toLowerCase().startsWith('es-mx')))
+                           || voces.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+                if (vozEs) {
+                    utterance.voice = vozEs;
+                    utterance.lang = vozEs.lang;
+                }
+            }
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function iniciarReconocimientoVoz() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert('Tu navegador no soporta reconocimiento de voz nativo (Web Speech API). Te recomendamos usar Google Chrome o Microsoft Edge, o escribir tu consulta directamente.');
+                return;
+            }
+
+            if (aiIsListening && aiRecognition) {
+                aiRecognition.stop();
+                return;
+            }
+
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+
+            aiRecognition = new SpeechRec();
+            aiRecognition.lang = 'es-BO';
+            aiRecognition.continuous = false;
+            aiRecognition.interimResults = false;
+
+            const micBtn = document.getElementById('aiMicBtn');
+            const subtitle = document.getElementById('aiStatusSubtitle');
+            const input = document.getElementById('aiQueryInput');
+
+            aiRecognition.onstart = function () {
+                aiIsListening = true;
+                micBtn.classList.add('ai-mic-listening');
+                subtitle.textContent = 'Escuchando por micrófono... Habla ahora';
+                input.placeholder = 'Escuchando tu voz en español...';
+            };
+
+            aiRecognition.onresult = function (event) {
+                const transcripcion = event.results?.[0]?.[0]?.transcript || '';
+                if (transcripcion.trim() !== '') {
+                    input.value = transcripcion.trim();
+                    ejecutarConsultaAi(transcripcion.trim());
+                    input.value = '';
+                }
+            };
+
+            aiRecognition.onerror = function (event) {
+                if (event.error === 'language-not-supported') {
+                    aiRecognition.lang = 'es-419';
+                }
+                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+            };
+
+            aiRecognition.onend = function () {
+                aiIsListening = false;
+                micBtn.classList.remove('ai-mic-listening');
+                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                input.placeholder = 'Escribe o pulsa el micrófono para hablar...';
+            };
+
+            aiRecognition.start();
+        }
+
+        function escaparHtmlAi(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
     </script>
     @stack('scripts')

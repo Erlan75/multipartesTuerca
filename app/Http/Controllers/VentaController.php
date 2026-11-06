@@ -249,3 +249,4 @@ class VentaController extends Controller
         return $mensaje;
     }
 }
+

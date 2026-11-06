@@ -237,3 +237,4 @@ class ClienteController extends Controller
             ->with('success', "Ficha comercial de '{$cliente->nombre_razon_social}' actualizada correctamente.");
     }
 }
+

@@ -20,6 +20,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CotizacionController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CajaController;
+use App\Http\Controllers\AsistenteIaController;
 
 // ═══════════════════════════════════════════════════════════════
 // RUTAS PÚBLICAS (Sin autenticación)
@@ -54,6 +55,9 @@ Route::middleware('auth')->group(function () {
     // ── Portal de Cotizaciones para Clientes Web (Rol 5 y Usuarios Autenticados) ──
     Route::get('/mis-cotizaciones', [CotizacionController::class, 'misCotizaciones'])->name('mis-cotizaciones.index');
     Route::post('/mis-cotizaciones', [CotizacionController::class, 'storeMiCotizacion'])->name('mis-cotizaciones.store');
+
+    // ── Asistente Inteligente Multimodal de Voz y Texto (Voice-to-SQL) ──
+    Route::post('/asistente/consultar', [AsistenteIaController::class, 'consultar'])->name('asistente.consultar');
 
     // ═════════════════════════════════════════════════════════════
     // MÓDULO 1: SEGURIDAD Y ACCESO + ADMINISTRACIÓN (Solo Administrador)

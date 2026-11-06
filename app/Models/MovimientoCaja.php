@@ -28,3 +28,4 @@ class MovimientoCaja extends Model
         return $this->belongsTo(SesionCaja::class, 'id_sesion', 'id_sesion');
     }
 }
+

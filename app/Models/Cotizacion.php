@@ -75,3 +75,4 @@ class Cotizacion extends Model
         return (int) round($hoy->diffInDays($vencimiento, false));
     }
 }
+

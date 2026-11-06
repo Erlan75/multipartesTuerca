@@ -396,3 +396,4 @@ class CotizacionController extends Controller
         return $mensaje;
     }
 }
+

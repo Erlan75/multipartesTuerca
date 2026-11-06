@@ -48,3 +48,4 @@ class NotaVenta extends Model
         return $this->hasMany(DetalleVenta::class, 'id_venta', 'id_venta');
     }
 }
+

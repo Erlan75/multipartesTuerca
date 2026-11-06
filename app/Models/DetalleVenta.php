@@ -33,3 +33,4 @@ class DetalleVenta extends Model
         return $this->belongsTo(Producto::class, 'id_producto', 'id_producto');
     }
 }
+

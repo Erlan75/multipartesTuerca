@@ -45,3 +45,4 @@ class SesionCaja extends Model
         return $this->hasMany(NotaVenta::class, 'id_sesion_caja', 'id_sesion');
     }
 }
+

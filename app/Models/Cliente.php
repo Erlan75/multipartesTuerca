@@ -32,3 +32,4 @@ class Cliente extends Model
         return $this->hasMany(NotaVenta::class, 'id_cliente', 'id_cliente');
     }
 }
+
