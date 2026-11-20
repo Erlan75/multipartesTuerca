@@ -97,17 +97,19 @@ class CotizacionController extends Controller
     {
         $clientes = Cliente::orderBy('nombre_razon_social')->get();
 
-        $productos = Producto::with(['categoria', 'codigosAlternativos'])
+        $productos = Producto::with(['categoria', 'codigosAlternativos', 'vehiculos'])
             ->where('estado', true)
             ->orderBy('nombre_pieza')
             ->get()
             ->map(function ($p) {
                 $altCodes = $p->codigosAlternativos->pluck('codigo_referencia')->implode(', ');
+                $vehiculosStr = $p->vehiculos->map(fn($v) => trim("{$v->marca} {$v->modelo} ({$v->anio_inicio}-{$v->anio_fin})"))->implode(', ');
                 return [
                     'id_producto'     => $p->id_producto,
                     'codigo_interno'  => $p->codigo_interno,
                     'codigo_oem'      => $p->codigo_oem,
                     'codigos_alt'     => $altCodes,
+                    'vehiculos'       => $vehiculosStr,
                     'nombre_pieza'    => $p->nombre_pieza,
                     'marca'           => $p->marca_fabricante ?? 'Genérico',
                     'categoria'       => $p->categoria->nombre ?? 'Repuesto',
@@ -212,14 +214,64 @@ class CotizacionController extends Controller
             'metodo_pago.required'    => 'Seleccione la modalidad de cobro.',
         ]);
 
+        $cotizacion = Cotizacion::with('detalles.producto')->findOrFail($id);
+
+        // Prevalidación de vigencia y sesión de caja abierta (CU26)
+        if ($cotizacion->estado !== 'Vigente' || Carbon::parse($cotizacion->fecha_vencimiento)->lt(Carbon::today())) {
+            if ($cotizacion->estado === 'Vigente' && Carbon::parse($cotizacion->fecha_vencimiento)->lt(Carbon::today())) {
+                $cotizacion->update(['estado' => 'Vencida']);
+            }
+            return back()->with('error', 'La cotización seleccionada no se encuentra vigente y no puede convertirse en venta.');
+        }
+
+        $sesionCaja = SesionCaja::find($request->id_sesion_caja);
+        if (!$sesionCaja || $sesionCaja->estado !== 'Abierta') {
+            return back()->with('error', 'No existe una sesión de caja abierta válida para procesar la conversión.');
+        }
+
+        // Prevalidación preventiva de existencias antes de invocar el SP transaccional
+        foreach ($cotizacion->detalles as $det) {
+            if (!$det->producto || !$det->producto->estado) {
+                return back()->with('error', 'Uno de los repuestos de la cotización se encuentra inactivo en el catálogo.');
+            }
+            if ((int)$det->producto->stock_actual < (int)$det->cantidad) {
+                return back()->with('error', "Stock insuficiente para '{$det->producto->nombre_pieza}': solicitado {$det->cantidad}, disponible en almacén {$det->producto->stock_actual}.");
+            }
+        }
+
+        $descuento = round((float)($request->descuento_total ?? 0), 2);
+        $netoCobrar = round(max(0, (float)$cotizacion->monto_total - $descuento), 2);
+        if ($netoCobrar <= 0) {
+            return back()->with('error', 'El importe neto a cobrar debe ser mayor a Bs. 0.00.');
+        }
+
+        $montoRecibido = $request->filled('monto_recibido') ? round((float)$request->monto_recibido, 2) : $netoCobrar;
+        if ($request->metodo_pago === 'Efectivo' && $montoRecibido + 0.01 < $netoCobrar) {
+            return back()->with('error', 'El efectivo recibido (Bs. ' . number_format($montoRecibido, 2) . ') es insuficiente para cubrir el total neto (Bs. ' . number_format($netoCobrar, 2) . ').');
+        }
+
+        $montoEfectivoMixto = round((float)($request->monto_efectivo ?? 0), 2);
+        $montoDigitalMixto = round((float)($request->monto_digital ?? 0), 2);
+        if ($request->metodo_pago === 'Mixto') {
+            if ($montoEfectivoMixto <= 0 || $montoDigitalMixto <= 0) {
+                return back()->with('error', 'En pago Mixto debe indicar montos mayores a cero tanto en Efectivo como en QR/Tarjeta.');
+            }
+            if (abs(($montoEfectivoMixto + $montoDigitalMixto) - $netoCobrar) > 0.05) {
+                return back()->with('error', 'En pago Mixto la suma de Efectivo y QR/Tarjeta debe igualar el total neto (Bs. ' . number_format($netoCobrar, 2) . ').');
+            }
+        }
+
+        $cambioDevuelto = $request->metodo_pago === 'Efectivo' ? round(max(0, $montoRecibido - $netoCobrar), 2) : 0.00;
+
         $detallesPago = [
             'origen'          => 'CONVERSION_COTIZACION',
             'id_cotizacion'   => (int)$id,
             'metodo_pago'     => $request->metodo_pago,
-            'monto_recibido'  => (float)($request->monto_recibido ?? 0),
+            'monto_recibido'  => $montoRecibido,
+            'cambio_devuelto' => $cambioDevuelto,
             'nro_referencia'  => $request->nro_referencia ? trim($request->nro_referencia) : null,
-            'monto_efectivo'  => (float)($request->monto_efectivo ?? 0),
-            'monto_digital'   => (float)($request->monto_digital ?? 0),
+            'monto_efectivo'  => $request->metodo_pago === 'Mixto' ? $montoEfectivoMixto : ($request->metodo_pago === 'Efectivo' ? $netoCobrar : 0),
+            'monto_digital'   => $request->metodo_pago === 'Mixto' ? $montoDigitalMixto : ($request->metodo_pago !== 'Efectivo' ? $netoCobrar : 0),
         ];
 
         try {

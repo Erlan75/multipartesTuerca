@@ -75,8 +75,8 @@ class VentaController extends Controller
             ->orderByDesc('id_sesion')
             ->first();
 
-        // Catálogo de repuestos activos con su costo base mínimo para validación preventiva en UI
-        $productos = Producto::with(['categoria', 'codigosAlternativos', 'detallesCompras' => function ($q) {
+        // Catálogo de repuestos activos con su costo base mínimo y compatibilidad vehicular para búsqueda rápida en POS
+        $productos = Producto::with(['categoria', 'codigosAlternativos', 'vehiculos', 'detallesCompras' => function ($q) {
                 $q->whereHas('compra', fn($cq) => $cq->where('estado_pago', '<>', 'Anulado'))
                   ->orderByDesc('id_detalle_compra');
             }])
@@ -89,11 +89,14 @@ class VentaController extends Controller
                     ? (float)$ultimoCosto
                     : round((float)$p->precio_venta_sugerido / (1 + (((float)$p->margen_ganancia ?: 25.0) / 100.0)), 2);
 
+                $vehiculosStr = $p->vehiculos->map(fn($v) => trim("{$v->marca} {$v->modelo} ({$v->anio_inicio}-{$v->anio_fin})"))->implode(', ');
+
                 return [
                     'id_producto'     => $p->id_producto,
                     'codigo_interno'  => $p->codigo_interno,
                     'codigo_oem'      => $p->codigo_oem,
                     'codigos_alt'     => $p->codigosAlternativos->pluck('codigo_referencia')->implode(', '),
+                    'vehiculos'       => $vehiculosStr,
                     'nombre_pieza'    => $p->nombre_pieza,
                     'marca'           => $p->marca_fabricante ?? 'Original',
                     'categoria'       => $p->categoria->nombre ?? 'Repuesto',
@@ -147,18 +150,39 @@ class VentaController extends Controller
             ];
         }
 
-        $descuentoGlobal = (float)($request->descuento_total ?? 0);
-        $netoCalculado = max(0, $brutoCalculado - $descuentoGlobal);
-        $montoRecibido = (float)($request->monto_recibido ?? $netoCalculado);
-        $cambioDevuelto = $request->metodo_pago === 'Efectivo' ? max(0, $montoRecibido - $netoCalculado) : 0;
+        $descuentoGlobal = round((float)($request->descuento_total ?? 0), 2);
+        $netoCalculado = round(max(0, $brutoCalculado - $descuentoGlobal), 2);
+
+        if ($netoCalculado <= 0) {
+            return back()->withInput()->with('error', 'El importe neto a cobrar debe ser mayor a Bs. 0.00.');
+        }
+
+        // Validación estricta de cobertura de cobro multicanal (CU29)
+        $montoRecibido = $request->filled('monto_recibido') ? round((float)$request->monto_recibido, 2) : $netoCalculado;
+        if ($request->metodo_pago === 'Efectivo' && $montoRecibido + 0.01 < $netoCalculado) {
+            return back()->withInput()->with('error', 'El monto recibido en efectivo (Bs. ' . number_format($montoRecibido, 2) . ') es menor al total neto a cobrar (Bs. ' . number_format($netoCalculado, 2) . ').');
+        }
+
+        $montoEfectivoMixto = round((float)($request->monto_efectivo ?? 0), 2);
+        $montoDigitalMixto = round((float)($request->monto_digital ?? 0), 2);
+        if ($request->metodo_pago === 'Mixto') {
+            if ($montoEfectivoMixto <= 0 || $montoDigitalMixto <= 0) {
+                return back()->withInput()->with('error', 'En el cobro Mixto debe ingresar montos mayores a cero tanto en Efectivo como en QR/Tarjeta.');
+            }
+            if (abs(($montoEfectivoMixto + $montoDigitalMixto) - $netoCalculado) > 0.05) {
+                return back()->withInput()->with('error', 'En el cobro Mixto la suma de Efectivo (Bs. ' . number_format($montoEfectivoMixto, 2) . ') + QR/Tarjeta (Bs. ' . number_format($montoDigitalMixto, 2) . ') debe coincidir con el total neto (Bs. ' . number_format($netoCalculado, 2) . ').');
+            }
+        }
+
+        $cambioDevuelto = $request->metodo_pago === 'Efectivo' ? round(max(0, $montoRecibido - $netoCalculado), 2) : 0.00;
 
         $detallesPago = [
             'metodo_pago'     => $request->metodo_pago,
             'monto_recibido'  => $montoRecibido,
             'cambio_devuelto' => $cambioDevuelto,
             'nro_referencia'  => $request->nro_referencia ? trim($request->nro_referencia) : null,
-            'monto_efectivo'  => $request->metodo_pago === 'Mixto' ? (float)($request->monto_efectivo ?? 0) : ($request->metodo_pago === 'Efectivo' ? $netoCalculado : 0),
-            'monto_digital'   => $request->metodo_pago === 'Mixto' ? (float)($request->monto_digital ?? 0) : ($request->metodo_pago !== 'Efectivo' ? $netoCalculado : 0),
+            'monto_efectivo'  => $request->metodo_pago === 'Mixto' ? $montoEfectivoMixto : ($request->metodo_pago === 'Efectivo' ? $netoCalculado : 0),
+            'monto_digital'   => $request->metodo_pago === 'Mixto' ? $montoDigitalMixto : ($request->metodo_pago !== 'Efectivo' ? $netoCalculado : 0),
             'autorizacion_descuento' => $request->autorizacion_descuento ? trim($request->autorizacion_descuento) : null,
         ];
 

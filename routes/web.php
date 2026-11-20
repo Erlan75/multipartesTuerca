@@ -20,6 +20,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CotizacionController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CajaController;
+use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\AsistenteIaController;
 
 // ═══════════════════════════════════════════════════════════════
@@ -56,8 +57,25 @@ Route::middleware('auth')->group(function () {
     Route::get('/mis-cotizaciones', [CotizacionController::class, 'misCotizaciones'])->name('mis-cotizaciones.index');
     Route::post('/mis-cotizaciones', [CotizacionController::class, 'storeMiCotizacion'])->name('mis-cotizaciones.store');
 
-    // ── Asistente Inteligente Multimodal de Voz y Texto (Voice-to-SQL) ──
+    // ── Asistente Inteligente Multimodal de Voz y Texto (Modo Analítico + Modo Transaccional) ──
     Route::post('/asistente/consultar', [AsistenteIaController::class, 'consultar'])->name('asistente.consultar');
+    Route::post('/asistente-ia/confirmar', [AsistenteIaController::class, 'confirmar'])->name('asistente.confirmar');
+
+    // ═════════════════════════════════════════════════════════════
+    // CICLO 4: REPORTES Y ANALÍTICA SMART-DB (CU35 – CU38)
+    // ═════════════════════════════════════════════════════════════
+    Route::prefix('reportes')->group(function () {
+        Route::middleware('role:Administrador,Bodeguero')->group(function () {
+            Route::get('/rotacion', [ReporteController::class, 'rotacion'])->name('reportes.rotacion');
+            Route::get('/compras-distribuidor', [ReporteController::class, 'comprasDistribuidor'])->name('reportes.compras');
+        });
+        Route::middleware('role:Administrador')->group(function () {
+            Route::get('/rentabilidad', [ReporteController::class, 'rentabilidad'])->name('reportes.rentabilidad');
+        });
+        Route::middleware('role:Administrador,Cajero')->group(function () {
+            Route::get('/balance-medios-pago', [ReporteController::class, 'balanceMediosPago'])->name('reportes.balance');
+        });
+    });
 
     // ═════════════════════════════════════════════════════════════
     // MÓDULO 1: SEGURIDAD Y ACCESO + ADMINISTRACIÓN (Solo Administrador)

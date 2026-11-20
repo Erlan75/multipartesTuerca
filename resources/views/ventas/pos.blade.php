@@ -66,7 +66,7 @@
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
                                 <input type="text" id="inputBuscarPos" class="form-control form-control-dark"
-                                       placeholder="Buscar por código OEM (ej. 04465), alternativo, SKU o descripción..."
+                                       placeholder="Buscar por código interno, OEM (ej. 04465), vehículo (ej. Corolla, Hilux) o pieza..."
                                        autocomplete="off" autofocus oninput="filtrarRepuestosPos()">
                                 <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('inputBuscarPos').value='';filtrarRepuestosPos();" title="Limpiar">
                                     <i class="bi bi-x-lg"></i>
@@ -106,7 +106,7 @@
             <div class="card-light">
                 {{-- 1. Selección de Cliente --}}
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-person-Vcard me-2 text-primary"></i>Cliente y Facturación</h6>
+                    <h6 class="mb-0"><i class="bi bi-person-vcard me-2 text-primary"></i>Cliente y Facturación</h6>
                     <div class="d-flex gap-1">
                         <button type="button" class="btn btn-sm btn-outline-tuerca" onclick="seleccionarMostrador()">
                             <i class="bi bi-lightning-charge me-1"></i>Mostrador S/N
@@ -279,9 +279,15 @@
                             <div class="col-6">
                                 <label class="form-label-dark mb-1">Monto por QR / Tarjeta (Bs.)</label>
                                 <input type="number" step="0.50" min="0" name="monto_digital" id="posMixtoDigital"
-                                       class="form-control form-control-dark" readonly>
+                                       class="form-control form-control-dark" oninput="validarCobroPos()">
                             </div>
                         </div>
+                        <small id="posMixtoResumen" class="d-block mt-1 text-muted" style="font-size:0.74rem;"></small>
+                    </div>
+
+                    <div id="alertaCobroPos" class="alert alert-danger py-2 px-3 mb-3 d-none" style="font-size:0.78rem;border-radius:10px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <span id="textoAlertaCobroPos"></span>
                     </div>
 
                     <button type="submit" id="btnProcesarVentaPos" class="btn btn-tuerca w-100 py-2" style="font-size:0.95rem;font-weight:700;" disabled>
@@ -362,6 +368,7 @@
                 || p.codigo_oem.toLowerCase().includes(q)
                 || p.codigo_interno.toLowerCase().includes(q)
                 || (p.codigos_alt && p.codigos_alt.toLowerCase().includes(q))
+                || (p.vehiculos && p.vehiculos.toLowerCase().includes(q))
                 || p.marca.toLowerCase().includes(q);
         });
 
@@ -374,6 +381,7 @@
 
         filtrados.forEach(p => {
             const sinStock = p.stock_actual <= 0;
+            const vehInfo = p.vehiculos ? `<div class="text-primary" style="font-size:0.7rem;"><i class="bi bi-car-front me-1"></i>${p.vehiculos}</div>` : '';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
@@ -383,6 +391,7 @@
                 <td>
                     <div style="font-weight:600;color:#1E293B;font-size:0.83rem;">${p.nombre_pieza}</div>
                     <small class="text-muted">${p.marca} · <i class="bi bi-geo-alt"></i> ${p.ubicacion}</small>
+                    ${vehInfo}
                 </td>
                 <td class="text-center">
                     <span class="${p.stock_actual > 3 ? 'badge-activo' : (p.stock_actual > 0 ? 'badge-stock-bajo' : 'badge-inactivo')}">
@@ -575,16 +584,76 @@
 
         recalcularVueltoPos();
         recalcularMixtoPos();
+        validarCobroPos(!!errorMargen);
+    }
 
-        document.getElementById('btnProcesarVentaPos').disabled = (carritoPos.length === 0 || !sesionCajaAbierta || !!errorMargen);
+    function obtenerMetodoPagoPos() {
+        return document.querySelector('input[name="metodo_pago"]:checked')?.value || 'Efectivo';
+    }
+
+    function validarCobroPos(tieneErrorMargen = null) {
+        const bruto = obtenerBrutoCarrito();
+        const desc = parseFloat(document.getElementById('posDescuentoBs').value) || 0;
+        const neto = Math.round(Math.max(0, bruto - desc) * 100) / 100;
+        const metodo = obtenerMetodoPagoPos();
+        const alertaCobro = document.getElementById('alertaCobroPos');
+        const textoCobro = document.getElementById('textoAlertaCobroPos');
+        const margenActivo = tieneErrorMargen !== null
+            ? tieneErrorMargen
+            : !document.getElementById('alertaMargenCosto').classList.contains('d-none');
+
+        let errorCobro = null;
+
+        if (carritoPos.length > 0 && neto > 0) {
+            if (metodo === 'Efectivo') {
+                const recibido = parseFloat(document.getElementById('posMontoRecibido').value) || 0;
+                if (recibido + 0.01 < neto) {
+                    errorCobro = `Efectivo insuficiente: faltan Bs. ${(neto - recibido).toFixed(2)} para cubrir el total neto (Bs. ${neto.toFixed(2)}).`;
+                }
+            } else if (metodo === 'Mixto') {
+                const ef = parseFloat(document.getElementById('posMixtoEfectivo').value) || 0;
+                const dig = parseFloat(document.getElementById('posMixtoDigital').value) || 0;
+                const suma = Math.round((ef + dig) * 100) / 100;
+                const resMixto = document.getElementById('posMixtoResumen');
+                if (resMixto) {
+                    resMixto.textContent = `Suma declarada: Bs. ${suma.toFixed(2)} / Total requerido: Bs. ${neto.toFixed(2)}`;
+                }
+                if (ef <= 0 || dig <= 0) {
+                    errorCobro = 'En cobro Mixto ambos importes (Efectivo y QR/Tarjeta) deben ser mayores a Bs. 0.00.';
+                } else if (Math.abs(suma - neto) > 0.05) {
+                    errorCobro = `La suma del pago mixto (Bs. ${suma.toFixed(2)}) debe coincidir exactamente con el total neto (Bs. ${neto.toFixed(2)}).`;
+                }
+            }
+        }
+
+        if (errorCobro) {
+            textoCobro.textContent = errorCobro;
+            alertaCobro.classList.remove('d-none');
+        } else {
+            alertaCobro.classList.add('d-none');
+        }
+
+        document.getElementById('btnProcesarVentaPos').disabled = (carritoPos.length === 0 || !sesionCajaAbierta || margenActivo || !!errorCobro);
     }
 
     function cambiarCanalPago(metodo) {
         document.getElementById('panelPosEfectivo').classList.toggle('d-none', metodo !== 'Efectivo');
         document.getElementById('panelPosReferencia').classList.toggle('d-none', metodo === 'Efectivo');
         document.getElementById('panelPosMixto').classList.toggle('d-none', metodo !== 'Mixto');
+
+        if (metodo === 'Mixto') {
+            const bruto = obtenerBrutoCarrito();
+            const desc = parseFloat(document.getElementById('posDescuentoBs').value) || 0;
+            const neto = Math.max(0, bruto - desc);
+            const inpEf = document.getElementById('posMixtoEfectivo');
+            if (neto > 0 && (!inpEf.value || parseFloat(inpEf.value) <= 0 || parseFloat(inpEf.value) >= neto)) {
+                inpEf.value = (neto / 2).toFixed(2);
+            }
+        }
+
         recalcularVueltoPos();
         recalcularMixtoPos();
+        validarCobroPos();
     }
 
     function fijarBillete(monto) {
@@ -608,9 +677,21 @@
         const bruto = obtenerBrutoCarrito();
         const desc = parseFloat(document.getElementById('posDescuentoBs').value) || 0;
         const neto = Math.max(0, bruto - desc);
-        const recibido = parseFloat(document.getElementById('posMontoRecibido').value) || 0;
+        const inp = document.getElementById('posMontoRecibido');
+        if (document.activeElement === inp) {
+            inp.dataset.editadoManualmente = '1';
+        }
+        const recibido = parseFloat(inp.value) || 0;
         const vuelto = Math.max(0, recibido - neto);
-        document.getElementById('posVueltoTexto').textContent = 'Bs. ' + vuelto.toFixed(2);
+        const elVuelto = document.getElementById('posVueltoTexto');
+        if (recibido + 0.01 < neto && neto > 0) {
+            elVuelto.textContent = 'Falta Bs. ' + (neto - recibido).toFixed(2);
+            elVuelto.style.color = '#DC2626';
+        } else {
+            elVuelto.textContent = 'Bs. ' + vuelto.toFixed(2);
+            elVuelto.style.color = '#059669';
+        }
+        validarCobroPos();
     }
 
     function recalcularMixtoPos() {
@@ -620,6 +701,7 @@
         const ef = parseFloat(document.getElementById('posMixtoEfectivo').value) || 0;
         const dig = Math.max(0, neto - ef);
         document.getElementById('posMixtoDigital').value = dig.toFixed(2);
+        validarCobroPos();
     }
 
     function seleccionarMostrador() {

@@ -101,7 +101,7 @@
                         @forelse($cliente->ventas as $v)
                             <tr>
                                 <td class="fw-bold">#V-{{ str_pad($v->id_venta, 5, '0', STR_PAD_LEFT) }}</td>
-                                <td>{{ $v->fecha_hora->format('d/m/Y H:i') }}</td>
+                                <td>{{ $v->fecha_hora ? $v->fecha_hora->format('d/m/Y H:i') : '-' }}</td>
                                 <td><small>{{ $v->metodo_pago }}</small></td>
                                 <td class="text-end fw-bold" style="font-family:monospace;">Bs. {{ number_format($v->total_venta, 2) }}</td>
                                 <td class="text-center">
@@ -151,7 +151,7 @@
                         @forelse($cliente->cotizaciones as $cot)
                             <tr>
                                 <td class="fw-bold">#COT-{{ str_pad($cot->id_cotizacion, 5, '0', STR_PAD_LEFT) }}</td>
-                                <td>{{ $cot->fecha_emision->format('d/m/Y') }}</td>
+                                <td>{{ $cot->fecha_emision ? $cot->fecha_emision->format('d/m/Y') : '-' }}</td>
                                 <td>
                                     @php $dias = $cot->dias_restantes; @endphp
                                     @if($cot->estado_visual === 'VIGENTE')
@@ -159,7 +159,7 @@
                                     @elseif($cot->estado_visual === 'VENCIDA')
                                         <small class="text-danger">Vencida hace {{ abs($dias) }} días</small>
                                     @else
-                                        <small class="text-muted">{{ $cot->fecha_vencimiento->format('d/m/Y') }}</small>
+                                        <small class="text-muted">{{ $cot->fecha_vencimiento ? $cot->fecha_vencimiento->format('d/m/Y') : '-' }}</small>
                                     @endif
                                 </td>
                                 <td class="text-end fw-bold" style="font-family:monospace;">Bs. {{ number_format($cot->monto_total, 2) }}</td>

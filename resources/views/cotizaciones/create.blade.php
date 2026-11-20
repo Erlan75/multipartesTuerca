@@ -200,6 +200,7 @@
                 || p.codigo_oem.toLowerCase().includes(q)
                 || p.codigo_interno.toLowerCase().includes(q)
                 || (p.codigos_alt && p.codigos_alt.toLowerCase().includes(q))
+                || (p.vehiculos && p.vehiculos.toLowerCase().includes(q))
                 || p.marca.toLowerCase().includes(q);
         });
 

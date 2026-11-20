@@ -696,7 +696,7 @@
             <i class="bi bi-receipt-cutoff"></i> Notas de Venta
         </a>
         <a href="{{ route('cotizaciones.index') }}" class="nav-link {{ request()->routeIs('cotizaciones.*') ? 'active' : '' }}">
-            <i class="bi bi-file-earmark-Spreadsheet"></i> Cotizaciones y Proformas
+            <i class="bi bi-file-earmark-spreadsheet"></i> Cotizaciones y Proformas
         </a>
         <a href="{{ route('clientes.index') }}" class="nav-link {{ request()->routeIs('clientes.*') ? 'active' : '' }}">
             <i class="bi bi-person-vcard"></i> Clientes y Talleres
@@ -718,7 +718,32 @@
         @endif
         @endif
 
-        {{-- 6. ENLACE AL CATÁLOGO PÚBLICO --}}
+        {{-- 7. REPORTES Y ANALÍTICA (Según Rol) --}}
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero', 'Cajero']))
+        <div class="nav-section">Reportes y Analítica</div>
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
+        <a href="{{ route('reportes.rotacion') }}" class="nav-link {{ request()->routeIs('reportes.rotacion') ? 'active' : '' }}">
+            <i class="bi bi-arrow-repeat"></i> Rotación de Repuestos
+        </a>
+        @endif
+        @if(auth()->user()->rol->nombre_rol === 'Administrador')
+        <a href="{{ route('reportes.rentabilidad') }}" class="nav-link {{ request()->routeIs('reportes.rentabilidad') ? 'active' : '' }}">
+            <i class="bi bi-graph-up-arrow"></i> Rentabilidad y Márgenes
+        </a>
+        @endif
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Bodeguero']))
+        <a href="{{ route('reportes.compras') }}" class="nav-link {{ request()->routeIs('reportes.compras') ? 'active' : '' }}">
+            <i class="bi bi-truck"></i> Compras por Distribuidor
+        </a>
+        @endif
+        @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero']))
+        <a href="{{ route('reportes.balance') }}" class="nav-link {{ request()->routeIs('reportes.balance') ? 'active' : '' }}">
+            <i class="bi bi-pie-chart"></i> Balance Medios de Pago
+        </a>
+        @endif
+        @endif
+
+        {{-- 8. ENLACE AL CATÁLOGO PÚBLICO --}}
         <div class="nav-section">Vitrina Comercial</div>
         <a href="{{ route('home') }}" target="_blank" class="nav-link">
             <i class="bi bi-shop"></i> Catálogo Público <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.75rem;"></i>
@@ -871,7 +896,10 @@
             color: #1D4ED8;
         }
         @media print {
-            .ai-fab-btn, .ai-widget-panel { display: none !important; }
+            .sidebar, .top-navbar, .no-print, .alert, .ai-fab-btn, .ai-widget-panel { display: none !important; }
+            .main-content { margin-left: 0 !important; width: 100% !important; }
+            .page-content { padding: 0 !important; }
+            body { background: #ffffff !important; }
         }
     </style>
 
@@ -917,17 +945,24 @@
             <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Qué repuestos están en stock crítico?')">
                 <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i>Stock crítico
             </button>
-            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Buscar amortiguador para Vitara')">
-                <i class="fa-solid fa-car text-blue-600 mr-1"></i>Amortiguador Vitara
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Mostrar rotación de repuestos y productos hueso')">
+                <i class="fa-solid fa-arrows-rotate text-blue-600 mr-1"></i>Rotación
             </button>
-            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Cuánto se vendió hoy?')">
-                <i class="fa-solid fa-cash-register text-emerald-600 mr-1"></i>Ventas de hoy
+            @if(auth()->user()->rol->nombre_rol === 'Administrador')
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Cuál es la rentabilidad y margen real actual?')">
+                <i class="fa-solid fa-chart-line text-emerald-600 mr-1"></i>Rentabilidad
             </button>
-            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Deudas pendientes a proveedores')">
-                <i class="fa-solid fa-file-invoice-dollar text-rose-500 mr-1"></i>Cuentas por pagar
+            @endif
+            @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero']))
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Balance de medios de pago y estado de caja')">
+                <i class="fa-solid fa-scale-balanced text-indigo-600 mr-1"></i>Balance pagos
+            </button>
+            @endif
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Buscar repuestos compatibles para Vitara')">
+                <i class="fa-solid fa-car text-sky-600 mr-1"></i>Compatibilidad
             </button>
             <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Ubicación y stock de pastillas de freno')">
-                <i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i>Ubicación pastillas
+                <i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>Ubicación
             </button>
         </div>
 
@@ -939,7 +974,7 @@
                     Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}
                 </div>
                 <p class="mb-0 leading-relaxed">
-                    Soy tu asistente de consulta rápida. Puedes <strong>hablar por micrófono</strong> o escribir para consultar stock, ubicación en pasillo/estante/gaveta, compatibilidad vehicular, cotizaciones, ventas o cuentas por pagar.
+                    Soy tu asistente inteligente por <strong>voz o texto</strong>. Puedo consultar stock, ubicaciones, rotación, rentabilidad y balances, o <strong>preparar ventas, cotizaciones, compras y ajustes de inventario</strong> para tu confirmación antes de ejecutarlos.
                 </p>
             </div>
         </div>
@@ -1026,12 +1061,32 @@
         function agregarBurbujaRespuesta(data) {
             const chat = document.getElementById('aiChatMessages');
             const div = document.createElement('div');
-            div.className = 'bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-800 space-y-2';
+
+            let bordeClase = 'bg-white border border-slate-200';
+            let iconoTitulo = '<i class="fa-solid fa-bolt text-blue-600"></i> Respuesta Ejecutiva';
+            if (data.tipo === 'restriccion') {
+                bordeClase = 'bg-amber-50 border border-amber-300';
+                iconoTitulo = '<i class="fa-solid fa-shield-halved text-amber-600"></i> Control de Acceso por Rol';
+            } else if (data.tipo === 'error') {
+                bordeClase = 'bg-rose-50 border border-rose-300';
+                iconoTitulo = '<i class="fa-solid fa-circle-exclamation text-rose-600"></i> Validación Smart-DB';
+            } else if (data.tipo === 'ejecucion_exitosa') {
+                bordeClase = 'bg-emerald-50 border border-emerald-300';
+                iconoTitulo = '<i class="fa-solid fa-circle-check text-emerald-600"></i> Transacción Ejecutada';
+            } else if (data.tipo === 'confirmacion') {
+                bordeClase = 'bg-blue-50/70 border-2 border-blue-300';
+                iconoTitulo = '<i class="fa-solid fa-clipboard-check text-blue-700"></i> Confirmación Requerida';
+            }
+
+            div.className = `${bordeClase} rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-800 space-y-2`;
 
             const badgeOrigen = data.origen === 'gemini'
-                ? '<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">IA Gemini SQL</span>'
-                : '<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">Smart-DB Directo</span>';
+                ? '<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">IA Gemini</span>'
+                : (data.origen === 'smartdb'
+                    ? '<span class="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold">Smart-DB SP</span>'
+                    : '<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">Smart-DB Directo</span>');
 
+            // 1. Tabla de datos analíticos
             let tablaHtml = '';
             if (Array.isArray(data.datos_resumen) && data.datos_resumen.length > 0) {
                 const cols = Object.keys(data.datos_resumen[0]);
@@ -1042,7 +1097,7 @@
                 }).join('');
 
                 tablaHtml = `
-                    <div class="overflow-x-auto border border-slate-200 rounded-xl mt-2">
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl mt-2 bg-white">
                         <table class="w-full text-left border-collapse">
                             <thead><tr>${ths}</tr></thead>
                             <tbody>${trs}</tbody>
@@ -1051,18 +1106,145 @@
                 `;
             }
 
+            // 2. Tarjeta de Confirmación Humana (Modo Transaccional Paso 1)
+            let confirmacionHtml = '';
+            if (data.tipo === 'confirmacion' && data.accion_pendiente) {
+                const acc = data.accion_pendiente;
+                const token = escaparHtmlAi(acc.action_token);
+                const resumenFilas = Object.entries(acc.resumen || {}).map(([k, v]) => `
+                    <div class="flex justify-between gap-2 text-[11px] py-0.5 border-b border-slate-100 last:border-0">
+                        <span class="text-slate-500 font-semibold">${escaparHtmlAi(k)}:</span>
+                        <span class="text-slate-900 font-bold text-right">${escaparHtmlAi(String(v))}</span>
+                    </div>
+                `).join('');
+
+                let itemsHtml = '';
+                if (Array.isArray(acc.items) && acc.items.length > 0) {
+                    const liRows = acc.items.map(it => `
+                        <tr class="border-b border-slate-100">
+                            <td class="py-1 px-1.5 text-[10.5px] font-semibold text-slate-800">${escaparHtmlAi(it.nombre_pieza)}</td>
+                            <td class="py-1 px-1.5 text-center text-[10.5px] font-bold">${escaparHtmlAi(String(it.cantidad))}</td>
+                            <td class="py-1 px-1.5 text-right font-mono text-[10.5px]">Bs. ${Number(it.subtotal || 0).toFixed(2)}</td>
+                        </tr>
+                    `).join('');
+                    itemsHtml = `
+                        <div class="overflow-x-auto border border-slate-200 rounded-lg bg-slate-50 mt-2">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-100 text-[9.5px] uppercase text-slate-500">
+                                        <th class="py-1 px-1.5">Repuesto</th>
+                                        <th class="py-1 px-1.5 text-center">Cant</th>
+                                        <th class="py-1 px-1.5 text-right">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${liRows}</tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
+                const advHtml = acc.advertencia
+                    ? `<div class="p-2 rounded-lg bg-amber-100/80 border border-amber-300 text-amber-900 text-[10.5px] mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${escaparHtmlAi(acc.advertencia)}</div>`
+                    : '';
+
+                confirmacionHtml = `
+                    <div class="bg-white border border-blue-200 rounded-xl p-2.5 mt-2 space-y-1.5" id="cardConfirm_${token}">
+                        <div class="flex items-center justify-between gap-2 pb-1 border-b border-slate-100">
+                            <span class="font-bold text-slate-900 text-[11.5px]">${escaparHtmlAi(acc.titulo || 'Confirmar Operación')}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[9.5px] font-bold">${escaparHtmlAi(acc.badge || 'Smart-DB')}</span>
+                        </div>
+                        <div>${resumenFilas}</div>
+                        ${itemsHtml}
+                        ${advHtml}
+                        <div class="flex items-center gap-2 pt-2" id="btnsConfirm_${token}">
+                            <button type="button" onclick="confirmarAccionAi('${token}', false)"
+                                    class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] border-0 shadow-sm transition">
+                                <i class="fa-solid fa-check-double mr-1"></i>Confirmar y Ejecutar
+                            </button>
+                            <button type="button" onclick="confirmarAccionAi('${token}', true)"
+                                    class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] border border-slate-300 transition">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 3. Botón directo a Ticket Térmico 80mm / Comprobante tras ejecución exitosa
+            let enlaceHtml = '';
+            if (data.enlace_comprobante) {
+                enlaceHtml = `
+                    <div class="pt-1">
+                        <a href="${escaparHtmlAi(data.enlace_comprobante)}" target="_blank"
+                           class="inline-flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] text-decoration-none shadow-sm transition">
+                            <i class="fa-solid fa-receipt"></i> ${escaparHtmlAi(data.etiqueta_enlace || 'Abrir Comprobante')}
+                        </a>
+                    </div>
+                `;
+            }
+
             div.innerHTML = `
                 <div class="flex items-center justify-between gap-2">
                     <span class="font-bold text-slate-900 text-[11px] flex items-center gap-1">
-                        <i class="fa-solid fa-bolt text-blue-600"></i> Respuesta Ejecutiva
+                        ${iconoTitulo}
                     </span>
                     ${badgeOrigen}
                 </div>
                 <p class="mb-0 leading-relaxed text-slate-700">${escaparHtmlAi(data.texto_pantalla || '')}</p>
                 ${tablaHtml}
+                ${confirmacionHtml}
+                ${enlaceHtml}
             `;
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
+        }
+
+        async function confirmarAccionAi(actionToken, cancelar) {
+            const btns = document.getElementById(`btnsConfirm_${actionToken}`);
+            if (btns) {
+                btns.innerHTML = `<span class="text-[11px] font-semibold text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i>${cancelar ? 'Cancelando operación...' : 'Ejecutando transacción en PostgreSQL...'}</span>`;
+            }
+
+            const subtitle = document.getElementById('aiStatusSubtitle');
+            subtitle.textContent = cancelar ? 'Cancelando borrador...' : 'Ejecutando procedimiento Smart-DB...';
+
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const resp = await fetch("{{ route('asistente.confirmar') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf
+                    },
+                    body: JSON.stringify({ action_token: actionToken, cancelar: !!cancelar })
+                });
+
+                const data = await resp.json();
+                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+
+                if (btns) {
+                    btns.innerHTML = cancelar
+                        ? '<span class="text-[11px] font-bold text-slate-500"><i class="fa-solid fa-ban mr-1"></i>Operación cancelada</span>'
+                        : (data.ok
+                            ? '<span class="text-[11px] font-bold text-emerald-700"><i class="fa-solid fa-check-circle mr-1"></i>Confirmada y ejecutada</span>'
+                            : '<span class="text-[11px] font-bold text-rose-600"><i class="fa-solid fa-circle-xmark mr-1"></i>Rechazada por Smart-DB</span>');
+                }
+
+                agregarBurbujaRespuesta(data);
+                hablarRespuestaEnEspanol(data.texto_voz || data.texto_pantalla || '');
+            } catch (err) {
+                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                if (btns) {
+                    btns.innerHTML = '<span class="text-[11px] font-bold text-rose-600">Error de conexión al confirmar</span>';
+                }
+                agregarBurbujaRespuesta({
+                    tipo: 'error',
+                    origen: 'smartdb',
+                    texto_pantalla: 'No se pudo completar la confirmación por un error de red. Verifica tu conexión e intenta nuevamente.',
+                    datos_resumen: []
+                });
+            }
         }
 
         async function ejecutarConsultaAi(consultaTexto) {

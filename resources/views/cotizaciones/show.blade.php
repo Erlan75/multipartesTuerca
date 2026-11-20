@@ -205,21 +205,54 @@
                     @else
                         <input type="hidden" name="id_sesion_caja" value="{{ $sesionAbierta->id_sesion }}">
                         <div class="mb-3">
+                            <label class="form-label-dark">Descuento Comercial Adicional (Bs.)</label>
+                            <input type="number" step="0.01" min="0" name="descuento_total" id="showConvDesc"
+                                   class="form-control form-control-dark" value="0.00" oninput="recalcularShowConv()">
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label-dark">Modalidad de Cobro <span class="text-danger">*</span></label>
-                            <select name="metodo_pago" class="form-select form-select-dark" required>
+                            <select name="metodo_pago" id="showConvMetodo" class="form-select form-select-dark" required onchange="cambiarMetodoShowConv(this.value)">
                                 <option value="Efectivo">Efectivo (Bs.)</option>
                                 <option value="Transferencia/QR">Transferencia Bancaria / QR Simple</option>
                                 <option value="Tarjeta Débito/Crédito">Tarjeta Débito / Crédito</option>
-                                <option value="Mixto">Pago Mixto</option>
+                                <option value="Mixto">Pago Mixto (Efectivo + QR/Tarjeta)</option>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label-dark">Descuento Comercial Adicional (Bs.)</label>
-                            <input type="number" step="0.01" min="0" name="descuento_total" class="form-control form-control-dark" value="0.00">
+                        <div id="showBloqueEfectivo" class="p-3 rounded-3 mb-2" style="background:#ECFDF5;border:1px solid #A7F3D0;">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-6">
+                                    <label class="form-label-dark mb-1" style="color:#065F46;">Efectivo Recibido (Bs.)</label>
+                                    <input type="number" step="0.50" min="0" name="monto_recibido" id="showConvRecibido"
+                                           class="form-control form-control-dark" value="{{ number_format((float)$cotizacion->monto_total, 2, '.', '') }}"
+                                           oninput="recalcularShowConv()">
+                                </div>
+                                <div class="col-6 text-end">
+                                    <div style="font-size:0.72rem;color:#065F46;font-weight:600;text-transform:uppercase;">Cambio / Vuelto</div>
+                                    <div id="showConvVuelto" style="font-size:1.2rem;font-weight:800;color:#059669;font-family:monospace;">Bs. 0.00</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label-dark">N° de Referencia / Observación de Cobro (Opcional)</label>
-                            <input type="text" name="nro_referencia" class="form-control form-control-dark" placeholder="Ej: Comprobante QR o Efectivo en mostrador">
+                        <div id="showBloqueReferencia" class="p-3 rounded-3 mb-2 d-none" style="background:#EFF6FF;border:1px solid #BFDBFE;">
+                            <label class="form-label-dark mb-1" style="color:#1E40AF;">N° de Referencia / Comprobante Bancario o Voucher</label>
+                            <input type="text" name="nro_referencia" class="form-control form-control-dark" placeholder="Ej: Comprobante QR o Voucher">
+                        </div>
+                        <div id="showBloqueMixto" class="p-3 rounded-3 mb-2 d-none" style="background:#FFFBEB;border:1px solid #FDE68A;">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label-dark mb-1">Parte en Efectivo (Bs.)</label>
+                                    <input type="number" step="0.01" min="0" name="monto_efectivo" id="showConvMixEf"
+                                           class="form-control form-control-dark" oninput="recalcularShowConv()">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label-dark mb-1">Parte por QR / Tarjeta (Bs.)</label>
+                                    <input type="number" step="0.01" min="0" name="monto_digital" id="showConvMixDig"
+                                           class="form-control form-control-dark" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mt-2">
+                            <span class="fw-bold" style="color:#1E293B;">Total Neto a Cobrar:</span>
+                            <span id="showConvNeto" style="font-size:1.25rem;font-weight:800;color:#007AFF;font-family:monospace;">Bs. {{ number_format((float)$cotizacion->monto_total, 2) }}</span>
                         </div>
                     @endif
                 </div>
@@ -235,6 +268,37 @@
         </div>
     </div>
 </div>
+@push('scripts')
+<script>
+    const brutoShowConv = {{ (float)$cotizacion->monto_total }};
+    function cambiarMetodoShowConv(metodo) {
+        document.getElementById('showBloqueEfectivo')?.classList.toggle('d-none', metodo !== 'Efectivo');
+        document.getElementById('showBloqueReferencia')?.classList.toggle('d-none', metodo === 'Efectivo');
+        document.getElementById('showBloqueMixto')?.classList.toggle('d-none', metodo !== 'Mixto');
+        if (metodo === 'Mixto') {
+            const desc = parseFloat(document.getElementById('showConvDesc')?.value) || 0;
+            const neto = Math.max(0, brutoShowConv - desc);
+            const elEf = document.getElementById('showConvMixEf');
+            if (elEf && (!elEf.value || parseFloat(elEf.value) <= 0)) {
+                elEf.value = (neto / 2).toFixed(2);
+            }
+        }
+        recalcularShowConv();
+    }
+    function recalcularShowConv() {
+        const desc = parseFloat(document.getElementById('showConvDesc')?.value) || 0;
+        const neto = Math.max(0, brutoShowConv - desc);
+        const elNeto = document.getElementById('showConvNeto');
+        if (elNeto) elNeto.textContent = 'Bs. ' + neto.toFixed(2);
+        const rec = parseFloat(document.getElementById('showConvRecibido')?.value) || 0;
+        const elVuelto = document.getElementById('showConvVuelto');
+        if (elVuelto) elVuelto.textContent = 'Bs. ' + Math.max(0, rec - neto).toFixed(2);
+        const ef = parseFloat(document.getElementById('showConvMixEf')?.value) || 0;
+        const elDig = document.getElementById('showConvMixDig');
+        if (elDig) elDig.value = Math.max(0, neto - ef).toFixed(2);
+    }
+</script>
+@endpush
 @endif
 @endsection
 

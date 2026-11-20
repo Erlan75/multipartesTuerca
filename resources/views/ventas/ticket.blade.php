@@ -122,7 +122,7 @@
         <div class="t-divider"></div>
 
         <div>
-            <div><strong>FECHA:</strong> {{ $venta->fecha_hora->format('d/m/Y H:i:s') }}</div>
+            <div><strong>FECHA:</strong> {{ $venta->fecha_hora ? $venta->fecha_hora->format('d/m/Y H:i:s') : '-' }}</div>
             <div><strong>CLIENTE:</strong> {{ $venta->cliente->nombre_razon_social ?? 'Cliente Mostrador' }}</div>
             <div><strong>CI/NIT:</strong> {{ $venta->cliente->ci_nit ?: 'S/N' }}</div>
             <div><strong>VENDEDOR:</strong> {{ $venta->vendedor->nombre_completo ?? 'Mostrador' }}</div>

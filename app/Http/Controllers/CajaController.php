@@ -138,6 +138,19 @@ class CajaController extends Controller
             $idUsuario = Auth::id();
             $ipOrigen  = $request->ip() ?? '127.0.0.1';
 
+            $sesion = SesionCaja::findOrFail($validated['id_sesion']);
+            if ($sesion->estado !== 'Abierta') {
+                return back()->withInput()->with('error', 'La sesión de caja seleccionada ya no se encuentra abierta.');
+            }
+
+            if ($validated['tipo'] === 'Retiro Menor') {
+                $arqueoActual = $this->calcularDesgloseSesion($sesion);
+                $efectivoDisponible = (float)$arqueoActual['efectivo_esperado_gaveta'];
+                if (round((float)$validated['monto'], 2) > $efectivoDisponible + 0.001) {
+                    return back()->withInput()->with('error', 'Efectivo físico insuficiente en gaveta para realizar el retiro. Disponible en efectivo: Bs. ' . number_format($efectivoDisponible, 2) . '.');
+                }
+            }
+
             $motivoFinal = trim($validated['motivo']);
             if (!empty($validated['categoria'])) {
                 $motivoFinal = '[' . strtoupper(trim($validated['categoria'])) . '] ' . $motivoFinal;
