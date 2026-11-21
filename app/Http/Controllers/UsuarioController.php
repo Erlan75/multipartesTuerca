@@ -7,13 +7,14 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Usuario;
 use App\Models\Rol;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class UsuarioController extends Controller
 {
     /**
      * CU03: Listar usuarios con búsqueda.
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $query = Usuario::with('rol');
 
@@ -24,6 +25,30 @@ class UsuarioController extends Controller
                   ->orWhere('username', 'ilike', "%{$buscar}%")
                   ->orWhere('correo', 'ilike', "%{$buscar}%");
             });
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('id_usuario')->get();
+            $encabezados = ['ID', 'Nombre Completo', 'Username', 'Correo', 'Teléfono', 'Rol', 'Estado'];
+            $filas = $lista->map(fn($u) => [
+                (int) $u->id_usuario,
+                $u->nombre_completo,
+                $u->username,
+                $u->correo,
+                $u->telefono ?? '-',
+                $u->rol->nombre_rol ?? '-',
+                $u->estado ? 'Activo' : 'Inactivo',
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'usuarios_' . now()->format('Ymd_His'),
+                'Listado de Usuarios del Sistema',
+                ['Filtro búsqueda: ' . ($request->buscar ?: 'Todos'), 'Total registros: ' . $lista->count()],
+                $encabezados,
+                $filas
+            );
         }
 
         $usuarios = $query->orderBy('id_usuario')->paginate(15)->withQueryString();

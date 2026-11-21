@@ -5,15 +5,39 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Rol;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class RolController extends Controller
 {
     /**
      * CU04: Listar roles (vista con modales para crear/editar).
      */
-    public function index()
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $roles = Rol::withCount('usuarios')->orderBy('id_rol')->get();
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $encabezados = ['ID', 'Nombre del Rol', 'Descripción', 'Usuarios Asignados'];
+            $filas = $roles->map(fn($r) => [
+                (int) $r->id_rol,
+                $r->nombre_rol,
+                $r->descripcion ?? '-',
+                (int) $r->usuarios_count,
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'roles_sistema_' . now()->format('Ymd_His'),
+                'Roles y Perfiles de Acceso',
+                ['Total roles configurados: ' . $roles->count()],
+                $encabezados,
+                $filas,
+                [],
+                ['TOTALES', '', '', (int) $roles->sum('usuarios_count')]
+            );
+        }
+
         return view('roles.index', compact('roles'));
     }
 

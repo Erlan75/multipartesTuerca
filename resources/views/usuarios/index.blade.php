@@ -7,11 +7,14 @@
 
 @section('content')
 <div class="card-dark">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5><i class="bi bi-people me-2"></i>Gestión de Usuarios</h5>
-        <a href="{{ route('usuarios.create') }}" class="btn btn-gold btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>Nuevo Usuario
-        </a>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            @include('partials.export_buttons')
+            <a href="{{ route('usuarios.create') }}" class="btn btn-gold btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Nuevo Usuario
+            </a>
+        </div>
     </div>
     <div class="card-body p-3">
         {{-- Búsqueda --}}

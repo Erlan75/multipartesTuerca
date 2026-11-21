@@ -16,7 +16,8 @@
             Gestión comercial de empresas distribuidoras de repuestos, condiciones de pago y control de estado.
         </p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        @include('partials.export_buttons')
         <a href="{{ route('proveedores.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
             <i class="bi bi-plus-lg me-1"></i>Nuevo Proveedor
         </a>

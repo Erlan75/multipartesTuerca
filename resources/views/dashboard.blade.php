@@ -248,13 +248,20 @@
                         <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>En Tiempo Real
                     </span>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 no-print">
                     <span style="background:#F1F5F9;color:#64748B;font-size:0.75rem;font-weight:500;padding:0.35rem 0.75rem;border-radius:8px;border:1px solid #E2E8F0;">
                         <i class="bi bi-funnel me-1"></i>Filtros: Todos
                     </span>
-                    <span style="background:#EFF6FF;color:#2563EB;font-size:0.75rem;font-weight:500;padding:0.35rem 0.75rem;border-radius:8px;border:1px solid #BFDBFE;cursor:pointer;">
-                        <i class="bi bi-download me-1"></i>Exportar CSV
-                    </span>
+                    <a href="{{ route('dashboard.exportar', 'pdf') }}"
+                       class="text-decoration-none"
+                       style="background:#FEF2F2;color:#DC2626;font-size:0.75rem;font-weight:600;padding:0.35rem 0.75rem;border-radius:8px;border:1px solid #FECACA;">
+                        <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
+                    </a>
+                    <a href="{{ route('dashboard.exportar', 'excel') }}"
+                       class="text-decoration-none"
+                       style="background:#ECFDF5;color:#059669;font-size:0.75rem;font-weight:600;padding:0.35rem 0.75rem;border-radius:8px;border:1px solid #A7F3D0;">
+                        <i class="bi bi-file-earmark-excel-fill me-1"></i>Excel
+                    </a>
                 </div>
             </div>
 

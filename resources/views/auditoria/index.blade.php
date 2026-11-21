@@ -7,8 +7,11 @@
 
 @section('content')
 <div class="card-dark">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5><i class="bi bi-journal-text me-2"></i>Bitácora de Auditoría</h5>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            @include('partials.export_buttons')
+        </div>
     </div>
     <div class="card-body p-3">
         {{-- Filtros --}}

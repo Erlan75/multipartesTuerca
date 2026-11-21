@@ -124,15 +124,90 @@
                             <span id="totalWebTexto" class="fw-bold fs-5 text-primary" style="font-family:monospace;">Bs. 0.00</span>
                         </div>
 
-                        <button type="submit" id="btnGenerarWeb" class="btn-mac w-100 py-2" disabled>
-                            <i class="bi bi-check2-circle me-1"></i>Generar Proforma Oficial
-                        </button>
+                        <div class="p-3 rounded-3 mb-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div class="small fw-bold text-dark mb-2">
+                                <i class="bi bi-credit-card-2-front text-success me-1"></i>Para Compra Directa en Línea (Opcional)
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <select name="metodo_pago" class="form-select form-select-sm">
+                                        <option value="Transferencia/QR">Transferencia / QR</option>
+                                        <option value="Tarjeta Débito/Crédito">Tarjeta Débito/Crédito</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <input type="text" name="nro_referencia" class="form-control form-control-sm" placeholder="N° Referencia / Operación">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" id="btnGenerarWeb" class="btn-mac w-100 py-2" disabled>
+                                <i class="bi bi-file-earmark-check me-1"></i>Generar Proforma Oficial
+                            </button>
+                            <button type="submit" id="btnComprarWeb" formaction="{{ route('mi-compra.store') }}" class="btn btn-success fw-semibold py-2" style="border-radius:10px;font-size:0.86rem;" disabled>
+                                <i class="bi bi-bag-check-fill me-1"></i>Confirmar Compra Directa Online
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
 
-            {{-- Historial de Mis Cotizaciones --}}
+            {{-- Historial de Mis Compras y Mis Cotizaciones --}}
             <div class="col-lg-7">
+                {{-- Mis Compras Confirmadas --}}
+                <div class="card-clean p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-0">
+                                <i class="bi bi-bag-check text-success me-2"></i>Mis Compras y Pedidos Confirmados
+                            </h5>
+                            <small class="text-muted">Descarga tus comprobantes oficiales en PDF en cualquier momento.</small>
+                        </div>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">{{ ($misCompras ?? collect())->count() }} compras</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0" style="font-size:0.83rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>N° Compra</th>
+                                    <th>Fecha</th>
+                                    <th>Pago</th>
+                                    <th class="text-end">Total (Bs.)</th>
+                                    <th class="text-end">Comprobante</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse(($misCompras ?? collect()) as $comp)
+                                    <tr>
+                                        <td class="fw-bold text-success font-monospace">#V-{{ str_pad($comp->id_venta, 5, '0', STR_PAD_LEFT) }}</td>
+                                        <td>{{ optional($comp->fecha_hora)->format('d/m/Y H:i') }}</td>
+                                        <td><span class="badge bg-light text-dark border">{{ $comp->metodo_pago }}</span></td>
+                                        <td class="text-end fw-bold font-monospace">Bs. {{ number_format((float)$comp->total_venta, 2) }}</td>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1">
+                                                <a href="{{ route('mi-comprobante.show', $comp->id_venta) }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px;" title="Ver Comprobante">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <a href="{{ route('mi-comprobante.pdf', $comp->id_venta) }}" class="btn btn-sm btn-danger" style="border-radius:8px;" title="Descargar PDF">
+                                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-3">
+                                            Aún no registras compras directas. Usa el botón verde o agrega repuestos desde la vitrina.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="card-clean p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div>
@@ -187,9 +262,14 @@
                                             @endif
                                         </td>
                                         <td class="text-end">
-                                            <a href="{{ route('cotizaciones.show', $cot->id_cotizacion) }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px;">
-                                                <i class="bi bi-printer"></i>
-                                            </a>
+                                            <div class="d-inline-flex gap-1">
+                                                <a href="{{ route('cotizaciones.show', $cot->id_cotizacion) }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px;" title="Ver / Imprimir">
+                                                    <i class="bi bi-printer"></i>
+                                                </a>
+                                                <a href="{{ route('cotizaciones.exportar', [$cot->id_cotizacion, 'pdf']) }}" class="btn btn-sm btn-danger" style="border-radius:8px;" title="Descargar PDF">
+                                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -252,6 +332,7 @@
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Sin repuestos agregados aún.</td></tr>';
                 document.getElementById('totalWebTexto').textContent = 'Bs. 0.00';
                 document.getElementById('btnGenerarWeb').disabled = true;
+                document.getElementById('btnComprarWeb').disabled = true;
                 return;
             }
             let total = 0;
@@ -278,6 +359,7 @@
             });
             document.getElementById('totalWebTexto').textContent = 'Bs. ' + total.toFixed(2);
             document.getElementById('btnGenerarWeb').disabled = false;
+            document.getElementById('btnComprarWeb').disabled = false;
         }
 
         document.addEventListener('DOMContentLoaded', () => {

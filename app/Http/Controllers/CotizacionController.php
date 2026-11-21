@@ -8,7 +8,10 @@ use App\Models\Cotizacion;
 use App\Models\Cliente;
 use App\Models\Producto;
 use App\Models\SesionCaja;
+use App\Models\NotaVenta;
 use App\Helpers\Bitacora;
+use App\Services\ExportacionService;
+use App\Services\ExportadorUniversalService;
 use Carbon\Carbon;
 
 class CotizacionController extends Controller
@@ -16,7 +19,7 @@ class CotizacionController extends Controller
     /**
      * Bandeja general de cotizaciones con validación de vigencia y filtros.
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         // Sincronizar automáticamente cotizaciones cuya fecha_vencimiento ya pasó
         Cotizacion::where('estado', 'Vigente')
@@ -67,6 +70,34 @@ class CotizacionController extends Controller
 
         if ($request->filled('fecha_hasta')) {
             $query->whereDate('fecha_emision', '<=', $request->fecha_hasta);
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderByDesc('id_cotizacion')->get();
+            $encabezados = ['N° Proforma', 'Emisión', 'Vencimiento', 'Cliente', 'CI / NIT', 'Asesor', 'Estado', 'Monto Total (Bs.)'];
+            $filas = $lista->map(fn($c) => [
+                'COT-' . str_pad($c->id_cotizacion, 5, '0', STR_PAD_LEFT),
+                optional($c->fecha_emision)->format('d/m/Y H:i') ?? '-',
+                Carbon::parse($c->fecha_vencimiento)->format('d/m/Y'),
+                $c->cliente->nombre_razon_social ?? '-',
+                $c->cliente->ci_nit ?: 'S/N',
+                $c->usuario->nombre_completo ?? 'Web',
+                $c->estado_visual,
+                round((float) $c->monto_total, 2),
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'cotizaciones_' . now()->format('Ymd_His'),
+                'Listado de Cotizaciones y Proformas Comerciales',
+                ['Estado: ' . ($request->estado ?: 'Todos') . ' | Búsqueda: ' . ($request->buscar ?: 'Todas')],
+                $encabezados,
+                $filas,
+                ['Total Proformas' => (string) $lista->count()],
+                ['TOTALES', '', '', '', '', '', '', round((float) $lista->sum('monto_total'), 2)],
+                'landscape'
+            );
         }
 
         $cotizaciones = $query->orderByDesc('id_cotizacion')
@@ -197,6 +228,78 @@ class CotizacionController extends Controller
     }
 
     /**
+     * Exporta la proforma / cotización comercial en PDF o Excel (.xlsx).
+     */
+    public function exportar($id, string $formato, ExportacionService $exportacion)
+    {
+        $cotizacion = Cotizacion::with(['cliente', 'usuario.rol', 'detalles.producto.categoria'])
+            ->findOrFail($id);
+
+        if (auth()->user()->id_rol === 5) {
+            $clienteWeb = $this->obtenerOCrearClienteParaUsuarioWeb(auth()->user());
+            if ($cotizacion->id_usuario !== auth()->id() && $cotizacion->id_cliente !== $clienteWeb->id_cliente) {
+                abort(403, 'No tiene permiso para exportar esta cotización.');
+            }
+        }
+
+        $encabezados = ['Código Interno', 'Repuesto / Pieza', 'Categoría', 'Cantidad', 'Precio Unit. (Bs.)', 'Subtotal (Bs.)'];
+
+        $filas = $cotizacion->detalles->map(function ($det) {
+            return [
+                $det->producto->codigo_interno ?? '-',
+                $det->producto->nombre_pieza ?? ('Repuesto #' . $det->id_producto),
+                $det->producto->categoria->nombre ?? 'General',
+                (int) $det->cantidad,
+                round((float) $det->precio_unitario_cotizado, 2),
+                round((float) $det->subtotal, 2),
+            ];
+        })->all();
+
+        $codigo = 'COT-' . str_pad($cotizacion->id_cotizacion, 5, '0', STR_PAD_LEFT);
+        $kpis = [
+            'Proforma'      => '#' . $codigo,
+            'Cliente'       => $cotizacion->cliente->nombre_razon_social ?? '-',
+            'Estado'        => $cotizacion->estado_visual,
+            'Válida Hasta'  => Carbon::parse($cotizacion->fecha_vencimiento)->format('d/m/Y'),
+            'Total (Bs.)'   => 'Bs. ' . number_format((float) $cotizacion->monto_total, 2),
+        ];
+
+        $subtitulos = [
+            'Emitida el: ' . optional($cotizacion->fecha_emision)->format('d/m/Y H:i')
+                . ' | Asesor: ' . ($cotizacion->usuario->nombre_completo ?? 'Sistema'),
+            'CI / NIT Cliente: ' . ($cotizacion->cliente->ci_nit ?? '-')
+                . ' | Teléfono: ' . ($cotizacion->cliente->telefono ?? '-'),
+        ];
+
+        $totales = ['', '', '', (int) $cotizacion->detalles->sum('cantidad'), 'TOTAL PROFORMA (Bs.):', round((float) $cotizacion->monto_total, 2)];
+        $nombreArchivo = 'proforma_' . $codigo . '_' . now()->format('Ymd_His');
+
+        if ($formato === 'excel') {
+            return $exportacion->exportarExcel(
+                $nombreArchivo,
+                'PROFORMA COMERCIAL #' . $codigo,
+                $subtitulos,
+                $encabezados,
+                $filas,
+                $kpis,
+                $totales
+            );
+        }
+
+        return $exportacion->exportarPdf(
+            $nombreArchivo,
+            'Proforma Comercial #' . $codigo,
+            $subtitulos,
+            $encabezados,
+            $filas,
+            $kpis,
+            $totales,
+            'portrait',
+            'Cotización referencial sujeta a disponibilidad de stock hasta la fecha de vencimiento indicada.'
+        );
+    }
+
+    /**
      * Convertir cotización vigente en Nota de Venta real invocando CALL sp_convertir_cotizacion_a_venta(...).
      */
     public function convertirAVenta(Request $request, $id)
@@ -289,7 +392,7 @@ class CotizacionController extends Controller
 
             $idVenta = $res[0]->p_id_venta ?? DB::table('notas_ventas')->max('id_venta');
 
-            return redirect()->route('ventas.ticket', $idVenta)
+            return redirect()->route('ventas.ticket', ['id' => $idVenta, 'autoprint' => 1])
                 ->with('success', "Cotización #COT-" . str_pad($id, 5, '0', STR_PAD_LEFT) . " convertida exitosamente en la Nota de Venta #V-" . str_pad($idVenta, 5, '0', STR_PAD_LEFT) . ".");
         } catch (\Throwable $e) {
             $mensaje = $this->extraerMensajePg($e->getMessage());
@@ -353,7 +456,13 @@ class CotizacionController extends Controller
 
         $productoPreseleccionado = $request->input('id_producto');
 
-        return view('cotizaciones.mis_cotizaciones', compact('cotizaciones', 'cliente', 'productos', 'productoPreseleccionado'));
+        $misCompras = NotaVenta::with(['detalles.producto'])
+            ->where('id_cliente', $cliente->id_cliente)
+            ->orderByDesc('id_venta')
+            ->limit(25)
+            ->get();
+
+        return view('cotizaciones.mis_cotizaciones', compact('cotizaciones', 'cliente', 'productos', 'productoPreseleccionado', 'misCompras'));
     }
 
     /**

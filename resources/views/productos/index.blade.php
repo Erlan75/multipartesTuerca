@@ -16,9 +16,12 @@
             Administra el catálogo completo de repuestos, precios, stock y ubicación en bodega.
         </p>
     </div>
-    <a href="{{ route('productos.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
-        <i class="bi bi-plus-lg me-1"></i>Nuevo Repuesto
-    </a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        @include('partials.export_buttons')
+        <a href="{{ route('productos.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo Repuesto
+        </a>
+    </div>
 </div>
 
 {{-- ═══ FILTROS ═══ --}}

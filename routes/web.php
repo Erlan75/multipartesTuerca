@@ -48,14 +48,20 @@ Route::middleware('auth')->group(function () {
 
     // ── Dashboard ──
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/exportar/{formato}', [DashboardController::class, 'exportar'])
+        ->whereIn('formato', ['pdf', 'excel'])
+        ->name('dashboard.exportar');
 
     // ── Perfil: Cambiar Contraseña (todos los usuarios autenticados) ──
     Route::get('/perfil/password', [PerfilController::class, 'editPassword'])->name('perfil.password');
     Route::put('/perfil/password', [PerfilController::class, 'updatePassword'])->name('perfil.password.update');
 
-    // ── Portal de Cotizaciones para Clientes Web (Rol 5 y Usuarios Autenticados) ──
+    // ── Portal de Cotizaciones y Compras Virtuales para Clientes Web (Rol 5 y Usuarios Autenticados) ──
     Route::get('/mis-cotizaciones', [CotizacionController::class, 'misCotizaciones'])->name('mis-cotizaciones.index');
     Route::post('/mis-cotizaciones', [CotizacionController::class, 'storeMiCotizacion'])->name('mis-cotizaciones.store');
+    Route::post('/mi-compra', [VentaController::class, 'storeCompraWeb'])->name('mi-compra.store');
+    Route::get('/mi-comprobante/{id}', [VentaController::class, 'miComprobanteShow'])->name('mi-comprobante.show');
+    Route::get('/mi-comprobante/{id}/pdf', [VentaController::class, 'miComprobantePdf'])->name('mi-comprobante.pdf');
 
     // ── Asistente Inteligente Multimodal de Voz y Texto (Modo Analítico + Modo Transaccional) ──
     Route::post('/asistente/consultar', [AsistenteIaController::class, 'consultar'])->name('asistente.consultar');
@@ -147,6 +153,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/ventas/crear', [VentaController::class, 'pos'])->name('ventas.create');
         Route::post('/ventas', [VentaController::class, 'store'])->name('ventas.store');
         Route::get('/ventas/{id}/ticket', [VentaController::class, 'ticket'])->name('ventas.ticket');
+        Route::get('/ventas/{id}/pdf', [VentaController::class, 'descargarPdf'])->name('ventas.pdf');
+        Route::get('/ventas/{id}/exportar/{formato}', [VentaController::class, 'exportar'])->whereIn('formato', ['pdf', 'excel'])->name('ventas.exportar');
         Route::get('/ventas/{id}', [VentaController::class, 'ticket'])->name('ventas.show');
         Route::post('/ventas/{id}/anular', [VentaController::class, 'anular'])->name('ventas.anular');
 
@@ -155,11 +163,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/caja/abrir', [CajaController::class, 'abrir'])->name('caja.abrir');
         Route::post('/caja/movimientos', [CajaController::class, 'registrarMovimiento'])->name('caja.movimientos.store');
         Route::post('/caja/{id}/cerrar', [CajaController::class, 'cerrar'])->name('caja.cerrar');
+        Route::get('/caja/{id}/exportar/{formato}', [CajaController::class, 'exportar'])->whereIn('formato', ['pdf', 'excel'])->name('caja.exportar');
         Route::get('/caja/{id}', [CajaController::class, 'show'])->name('caja.show');
     });
 
     // Vista de proforma individual accesible también para el propio Cliente Web (validado en controlador)
     Route::get('/cotizaciones/{id}', [CotizacionController::class, 'show'])->name('cotizaciones.show');
+    Route::get('/cotizaciones/{id}/exportar/{formato}', [CotizacionController::class, 'exportar'])
+        ->whereIn('formato', ['pdf', 'excel'])
+        ->name('cotizaciones.exportar');
 
     // ═════════════════════════════════════════════════════════════
     // MÓDULO 2 Y 3: ALMACÉN, INVENTARIO, PROVEEDORES Y COMPRAS
@@ -219,6 +231,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/compras', [CompraController::class, 'store'])->name('compras.store');
         Route::get('/compras/historial/costos', [CompraController::class, 'historialCostos'])->name('compras.historial-costos');
         Route::get('/compras/costos', [CompraController::class, 'historialCostos'])->name('compras.costos.alias');
+        Route::get('/compras/{id}/exportar/{formato}', [CompraController::class, 'exportar'])->whereIn('formato', ['pdf', 'excel'])->name('compras.exportar');
         Route::get('/compras/{id}', [CompraController::class, 'show'])->name('compras.show');
     });
 });

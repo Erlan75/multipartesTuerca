@@ -8,13 +8,16 @@ use App\Models\NotaCompra;
 use App\Models\DetalleCompra;
 use App\Models\Proveedor;
 use App\Models\Producto;
+use App\Services\ExportacionService;
+use App\Services\ExportadorUniversalService;
+use Carbon\Carbon;
 
 class CompraController extends Controller
 {
     /**
      * Listado general de compras recibidas.
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $query = NotaCompra::with(['proveedor', 'usuarioReceptor', 'detalles.producto']);
 
@@ -40,6 +43,40 @@ class CompraController extends Controller
 
         if ($request->filled('fecha_hasta')) {
             $query->whereDate('fecha_compra', '<=', $request->fecha_hasta);
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('fecha_compra', 'desc')->orderBy('id_compra', 'desc')->get();
+            $encabezados = ['ID', 'Fecha Compra', 'Factura / Nota', 'Proveedor', 'Receptor', 'Tipo Pago', 'Estado Pago', 'Monto Total (Bs.)'];
+            $filas = $lista->map(fn($c) => [
+                'C-' . str_pad($c->id_compra, 5, '0', STR_PAD_LEFT),
+                Carbon::parse($c->fecha_compra)->format('d/m/Y'),
+                $c->numero_factura_nota,
+                $c->proveedor->razon_social ?? '-',
+                $c->usuarioReceptor->nombre_completo ?? 'Sistema',
+                $c->tipo_pago,
+                $c->estado_pago,
+                round((float) $c->monto_total, 2),
+            ])->toArray();
+
+            $subtitulos = [
+                'Rango: ' . ($request->fecha_desde ?: 'Inicio') . ' al ' . ($request->fecha_hasta ?: 'Actual')
+                    . ' | Pago: ' . ($request->tipo_pago ?: 'Todos')
+                    . ' | Estado: ' . ($request->estado_pago ?: 'Todos'),
+            ];
+
+            return $exportador->exportarLista(
+                $export,
+                'compras_recepcion_' . now()->format('Ymd_His'),
+                'Historial de Notas de Compra y Recepción',
+                $subtitulos,
+                $encabezados,
+                $filas,
+                ['Notas de Compra' => (string) $lista->count(), 'Total Adquirido' => 'Bs. ' . number_format((float) $lista->sum('monto_total'), 2)],
+                ['TOTALES', '', '', '', '', '', '', round((float) $lista->sum('monto_total'), 2)],
+                'landscape'
+            );
         }
 
         $compras = $query->orderBy('fecha_compra', 'desc')
@@ -133,9 +170,73 @@ class CompraController extends Controller
     }
 
     /**
+     * Exporta el comprobante de recepción de compra en PDF o Excel (.xlsx).
+     */
+    public function exportar($id, string $formato, ExportacionService $exportacion)
+    {
+        $compra = NotaCompra::with(['proveedor', 'usuarioReceptor.rol', 'detalles.producto.categoria'])
+            ->findOrFail($id);
+
+        $encabezados = ['Código Interno', 'Repuesto / Pieza', 'Categoría', 'Cantidad', 'Costo Unit. (Bs.)', 'Subtotal (Bs.)'];
+
+        $filas = $compra->detalles->map(function ($det) {
+            return [
+                $det->producto->codigo_interno ?? '-',
+                $det->producto->nombre_pieza ?? ('Repuesto #' . $det->id_producto),
+                $det->producto->categoria->nombre ?? 'General',
+                (int) $det->cantidad_recibida,
+                round((float) $det->costo_unitario, 2),
+                round((float) $det->subtotal, 2),
+            ];
+        })->all();
+
+        $codigo = 'C-' . str_pad($compra->id_compra, 5, '0', STR_PAD_LEFT);
+        $kpis = [
+            'Comprobante'    => '#' . $codigo,
+            'Proveedor'      => $compra->proveedor->razon_social ?? '-',
+            'Factura / Nota' => $compra->numero_factura_nota ?? '-',
+            'Pago / Estado'  => $compra->tipo_pago . ' (' . $compra->estado_pago . ')',
+            'Monto Total'    => 'Bs. ' . number_format((float) $compra->monto_total, 2),
+        ];
+
+        $subtitulos = [
+            'Fecha de compra: ' . \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y')
+                . ' | Receptor: ' . ($compra->usuarioReceptor->nombre_completo ?? 'Sistema'),
+            'NIT Proveedor: ' . ($compra->proveedor->nit ?? '-'),
+        ];
+
+        $totales = ['', '', '', (int) $compra->detalles->sum('cantidad_recibida'), 'TOTAL COMPRA (Bs.):', round((float) $compra->monto_total, 2)];
+        $nombreArchivo = 'recepcion_compra_' . $codigo . '_' . now()->format('Ymd_His');
+
+        if ($formato === 'excel') {
+            return $exportacion->exportarExcel(
+                $nombreArchivo,
+                'COMPROBANTE DE RECEPCIÓN DE COMPRA #' . $codigo,
+                $subtitulos,
+                $encabezados,
+                $filas,
+                $kpis,
+                $totales
+            );
+        }
+
+        return $exportacion->exportarPdf(
+            $nombreArchivo,
+            'Recepción de Compra #' . $codigo,
+            $subtitulos,
+            $encabezados,
+            $filas,
+            $kpis,
+            $totales,
+            'portrait',
+            'Comprobante de ingreso a almacén — Multipartes El Tuerca.'
+        );
+    }
+
+    /**
      * CU21: Consultar historial cronológico de costos de adquisición por repuesto.
      */
-    public function historialCostos(Request $request)
+    public function historialCostos(Request $request, ExportadorUniversalService $exportador)
     {
         $productos = Producto::where('estado', true)
             ->orderBy('nombre_pieza', 'asc')
@@ -195,6 +296,36 @@ class CompraController extends Controller
             }
         }
 
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $encabezados = ['Fecha Compra', 'Factura / Nota', 'Proveedor', 'Cant. Recibida', 'Costo Unit. (Bs.)', 'Subtotal (Bs.)', 'Variación (%)'];
+            $filas = $historial->map(fn($item) => [
+                Carbon::parse($item->compra->fecha_compra)->format('d/m/Y'),
+                $item->compra->numero_factura_nota ?? '-',
+                $item->compra->proveedor->razon_social ?? '-',
+                (int) $item->cantidad_recibida,
+                round((float) $item->costo_unitario, 2),
+                round((float) $item->subtotal, 2),
+                $item->variacion_pct !== null ? number_format((float) $item->variacion_pct, 2) . '%' : 'Base',
+            ])->toArray();
+
+            $repuestoTxt = $productoSeleccionado
+                ? "[{$productoSeleccionado->codigo_interno}] {$productoSeleccionado->nombre_pieza}"
+                : 'Sin repuesto seleccionado';
+
+            return $exportador->exportarLista(
+                $export,
+                'historial_costos_' . now()->format('Ymd_His'),
+                'Historial de Costos de Adquisición',
+                ['Repuesto: ' . $repuestoTxt, 'Desde: ' . ($request->fecha_desde ?: 'Inicio') . ' al ' . ($request->fecha_hasta ?: 'Actual')],
+                $encabezados,
+                $filas,
+                $estadisticas ? ['Costo Promedio' => 'Bs. ' . number_format((float) $estadisticas->costo_promedio, 2), 'Último Costo' => 'Bs. ' . number_format((float) $estadisticas->ultimo_costo, 2)] : [],
+                [],
+                'landscape'
+            );
+        }
+
         return view('compras.historial_costos', compact(
             'productos',
             'productoSeleccionado',
@@ -206,7 +337,7 @@ class CompraController extends Controller
     /**
      * CU22: Gestión de Cuentas por Pagar (Compras a crédito pendientes).
      */
-    public function cuentasPorPagar(Request $request)
+    public function cuentasPorPagar(Request $request, ExportadorUniversalService $exportador)
     {
         $query = NotaCompra::with(['proveedor', 'usuarioReceptor'])
             ->where('tipo_pago', 'Crédito')
@@ -214,6 +345,33 @@ class CompraController extends Controller
 
         if ($request->filled('id_proveedor')) {
             $query->where('id_proveedor', $request->id_proveedor);
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('fecha_compra', 'asc')->get();
+            $encabezados = ['Comprobante', 'Fecha Compra', 'Factura / Nota', 'Proveedor', 'NIT', 'Receptor', 'Saldo Pendiente (Bs.)'];
+            $filas = $lista->map(fn($c) => [
+                'C-' . str_pad($c->id_compra, 5, '0', STR_PAD_LEFT),
+                Carbon::parse($c->fecha_compra)->format('d/m/Y'),
+                $c->numero_factura_nota,
+                $c->proveedor->razon_social ?? '-',
+                $c->proveedor->nit ?? '-',
+                $c->usuarioReceptor->nombre_completo ?? 'Sistema',
+                round((float) $c->monto_total, 2),
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'cuentas_por_pagar_' . now()->format('Ymd_His'),
+                'Cuentas por Pagar a Proveedores (Crédito Pendiente)',
+                ['Facturas pendientes: ' . $lista->count()],
+                $encabezados,
+                $filas,
+                ['Total Adeudado' => 'Bs. ' . number_format((float) $lista->sum('monto_total'), 2)],
+                ['TOTAL ADEUDADO', '', '', '', '', '', round((float) $lista->sum('monto_total'), 2)],
+                'landscape'
+            );
         }
 
         $cuentasPendientes = $query->orderBy('fecha_compra', 'asc')

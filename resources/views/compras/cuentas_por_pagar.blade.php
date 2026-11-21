@@ -17,7 +17,8 @@
             Control y liquidación de facturas de mercadería ingresadas bajo modalidad de crédito mediante SP Smart-DB blindado.
         </p>
     </div>
-    <div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        @include('partials.export_buttons')
         <a href="{{ route('compras.index') }}" class="btn btn-outline-tuerca" style="padding:0.55rem 1.2rem;font-size:0.85rem;">
             <i class="bi bi-journal-text me-1"></i>Todas las Compras
         </a>

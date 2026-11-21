@@ -6,6 +6,9 @@ use App\Models\BitacoraAuditoria;
 use App\Models\MovimientoCaja;
 use App\Models\NotaVenta;
 use App\Models\SesionCaja;
+use App\Services\ExportacionService;
+use App\Services\ExportadorUniversalService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +18,7 @@ class CajaController extends Controller
     /**
      * Panel principal de Tesorería y Sesiones de Caja (CU32, CU33, CU34).
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $user = Auth::user();
 
@@ -44,6 +47,36 @@ class CajaController extends Controller
 
         if ($request->filled('fecha_desde')) {
             $querySesiones->whereDate('fecha_hora_apertura', '>=', $request->fecha_desde);
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $querySesiones->orderByDesc('id_sesion')->get();
+            $encabezados = ['Sesión', 'Cajero', 'Apertura', 'Cierre', 'Base Inicial (Bs.)', 'Esperado Sistema (Bs.)', 'Contado Real (Bs.)', 'Diferencia (Bs.)', 'Ventas', 'Estado'];
+            $filas = $lista->map(fn($s) => [
+                'CAJA-' . str_pad($s->id_sesion, 4, '0', STR_PAD_LEFT),
+                $s->cajero->nombre_completo ?? 'Sistema',
+                optional($s->fecha_hora_apertura)->format('d/m/Y H:i') ?? '-',
+                $s->fecha_hora_cierre ? $s->fecha_hora_cierre->format('d/m/Y H:i') : 'En curso',
+                round((float) $s->monto_inicial, 2),
+                round((float) $s->monto_esperado_sistema, 2),
+                $s->monto_real_contado !== null ? round((float) $s->monto_real_contado, 2) : '-',
+                $s->diferencia !== null ? round((float) $s->diferencia, 2) : '-',
+                (int) $s->total_operaciones_venta,
+                $s->estado,
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'sesiones_caja_' . now()->format('Ymd_His'),
+                'Historial de Sesiones de Caja y Arqueos',
+                ['Estado: ' . ($request->estado ?: 'Todas') . ' | Desde: ' . ($request->fecha_desde ?: 'Inicio')],
+                $encabezados,
+                $filas,
+                ['Total Sesiones' => (string) $lista->count(), 'Total Esperado Sistema' => 'Bs. ' . number_format((float) $lista->sum('monto_esperado_sistema'), 2)],
+                ['TOTALES', '', '', '', round((float) $lista->sum('monto_inicial'), 2), round((float) $lista->sum('monto_esperado_sistema'), 2), '', '', (int) $lista->sum('total_operaciones_venta'), ''],
+                'landscape'
+            );
         }
 
         $sesiones = $querySesiones->orderByDesc('id_sesion')
@@ -81,6 +114,114 @@ class CajaController extends Controller
         }
 
         return view('caja.show', compact('sesion', 'arqueo', 'observacionesCierre'));
+    }
+
+    /**
+     * Exporta el Acta de Arqueo y Movimientos de una sesión de caja en PDF o Excel (.xlsx).
+     */
+    public function exportar($id, string $formato, ExportacionService $exportacion)
+    {
+        $sesion = SesionCaja::with([
+            'cajero',
+            'movimientos',
+            'ventas.cliente',
+            'ventas.vendedor',
+        ])->findOrFail($id);
+
+        $arqueo = $this->calcularDesgloseSesion($sesion);
+
+        $bitacoraCierre = BitacoraAuditoria::where('modulo_afectado', 'Tesorería / Caja')
+            ->where('accion', 'CIERRE_CAJA')
+            ->where('registro_id', $sesion->id_sesion)
+            ->orderByDesc('id_bitacora')
+            ->first();
+
+        $observacionesCierre = null;
+        if ($bitacoraCierre) {
+            $datos = json_decode($bitacoraCierre->detalle_cambio, true);
+            $observacionesCierre = $datos['observaciones'] ?? null;
+        }
+
+        $encabezados = ['Hora', 'Tipo / Operación', 'Referencia / Detalle', 'Medio / Categoría', 'Estado', 'Monto (Bs.)'];
+
+        $filas = [
+            [
+                optional($sesion->fecha_hora_apertura)->format('d/m/Y H:i') ?? '-',
+                'Apertura de Caja',
+                'Fondo inicial de gaveta',
+                'Efectivo',
+                'Registrado',
+                round($arqueo['base_inicial'], 2),
+            ],
+        ];
+
+        foreach ($sesion->ventas->sortBy('fecha_hora') as $v) {
+            $filas[] = [
+                optional($v->fecha_hora)->format('d/m/Y H:i') ?? '-',
+                'Nota de Venta',
+                '#V-' . str_pad($v->id_venta, 5, '0', STR_PAD_LEFT) . ' - ' . ($v->cliente->nombre_razon_social ?? 'Público General'),
+                $v->metodo_pago,
+                $v->estado,
+                round((float) $v->total_venta, 2),
+            ];
+        }
+
+        foreach ($sesion->movimientos->sortBy('hora') as $m) {
+            $signo = $m->tipo === 'Retiro Menor' ? -1 : 1;
+            $filas[] = [
+                optional($m->hora)->format('d/m/Y H:i') ?? '-',
+                $m->tipo,
+                $m->motivo ?? '-',
+                'Caja Menor',
+                'Aplicado',
+                round($signo * (float) $m->monto, 2),
+            ];
+        }
+
+        $kpis = [
+            'Sesión'             => '#CAJA-' . str_pad($sesion->id_sesion, 4, '0', STR_PAD_LEFT) . ' (' . $sesion->estado . ')',
+            'Cajero'             => $sesion->cajero->nombre_completo ?? 'Sistema',
+            'Base Inicial'       => 'Bs. ' . number_format($arqueo['base_inicial'], 2),
+            'Ventas Efectivo'    => 'Bs. ' . number_format($arqueo['ventas_efectivo'], 2),
+            'Digitales (QR/Tarj.)' => 'Bs. ' . number_format($arqueo['total_digitales'], 2),
+            'Esperado Gaveta'    => 'Bs. ' . number_format($arqueo['efectivo_esperado_gaveta'], 2),
+        ];
+
+        $subtitulos = [
+            'Apertura: ' . (optional($sesion->fecha_hora_apertura)->format('d/m/Y H:i') ?? '-')
+                . ' | Cierre: ' . ($sesion->fecha_hora_cierre ? $sesion->fecha_hora_cierre->format('d/m/Y H:i') : 'En curso'),
+            'Ingresos Extra: Bs. ' . number_format($arqueo['ingresos_extra'], 2)
+                . ' | Retiros Menores: Bs. ' . number_format($arqueo['retiros_menores'], 2)
+                . ($observacionesCierre ? ' | Obs. Cierre: ' . $observacionesCierre : ''),
+        ];
+
+        $totales = ['', '', '', '', 'ESPERADO EN GAVETA (EFEC.):', round($arqueo['efectivo_esperado_gaveta'], 2)];
+        $codigo = str_pad($sesion->id_sesion, 4, '0', STR_PAD_LEFT);
+        $nombreArchivo = 'acta_arqueo_caja_' . $codigo . '_' . now()->format('Ymd_His');
+
+        if ($formato === 'excel') {
+            return $exportacion->exportarExcel(
+                $nombreArchivo,
+                'ACTA DE ARQUEO Y MOVIMIENTOS DE CAJA #CAJA-' . $codigo,
+                $subtitulos,
+                $encabezados,
+                $filas,
+                $kpis,
+                $totales
+            );
+        }
+
+        return $exportacion->exportarPdf(
+            $nombreArchivo,
+            'Acta de Arqueo de Caja #CAJA-' . $codigo,
+            $subtitulos,
+            $encabezados,
+            $filas,
+            $kpis,
+            $totales,
+            'landscape',
+            'Acta de Arqueo emitida por el módulo de Tesorería — Multipartes El Tuerca.'
+        );
     }
 
     /**

@@ -71,10 +71,7 @@
                     <i class="fa-solid fa-receipt mr-1"></i> Ticket 80mm
                 </a>
             </div>
-            <a href="{{ request()->fullUrlWithQuery(['export' => 'csv']) }}"
-               class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition text-decoration-none">
-                <i class="fa-solid fa-file-csv"></i> CSV
-            </a>
+            @include('partials.export_buttons')
             <button type="button" onclick="window.print()"
                     class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition border-0">
                 <i class="fa-solid fa-print"></i> Imprimir

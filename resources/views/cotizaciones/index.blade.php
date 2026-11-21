@@ -16,7 +16,8 @@
             Seguimiento de proformas comerciales emitidas, control de vencimientos y conversión inmediata a Nota de Venta.
         </p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        @include('partials.export_buttons')
         <a href="{{ route('cotizaciones.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
             <i class="bi bi-plus-lg me-1"></i>Nueva Cotización
         </a>

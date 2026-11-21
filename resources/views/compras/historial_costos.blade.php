@@ -17,7 +17,8 @@
             Consulta cronológica de precios de compra directamente desde el histórico de recepciones por repuesto para auditoría y fijación de márgenes.
         </p>
     </div>
-    <div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        @include('partials.export_buttons')
         <a href="{{ route('compras.index') }}" class="btn btn-outline-tuerca" style="padding:0.55rem 1.2rem;font-size:0.85rem;">
             <i class="bi bi-journal-text me-1"></i>Listado de Compras
         </a>

@@ -19,7 +19,13 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 no-print print:hidden">
+            <a href="{{ route('caja.exportar', [$sesion->id_sesion, 'pdf']) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition text-decoration-none">
+                <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+            </a>
+            <a href="{{ route('caja.exportar', [$sesion->id_sesion, 'excel']) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition text-decoration-none">
+                <i class="fa-solid fa-file-excel"></i> Exportar Excel
+            </a>
             <button type="button" onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition border-0">
                 <i class="fa-solid fa-print"></i> Imprimir Acta de Arqueo
             </button>

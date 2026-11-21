@@ -20,10 +20,7 @@
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 no-print">
-            <a href="{{ request()->fullUrlWithQuery(['export' => 'csv']) }}"
-               class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition text-decoration-none">
-                <i class="fa-solid fa-file-csv"></i> Exportar CSV
-            </a>
+            @include('partials.export_buttons')
             <button type="button" onclick="window.print()"
                     class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition border-0">
                 <i class="fa-solid fa-print"></i> Imprimir Reporte

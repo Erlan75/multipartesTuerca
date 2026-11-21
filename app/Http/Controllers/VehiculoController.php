@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Vehiculo;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class VehiculoController extends Controller
 {
     /**
      * CU10: Listar vehículos (vista con modales CRUD).
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $query = Vehiculo::withCount('compatibilidades')
             ->with(['productos' => function ($q) {
@@ -51,6 +52,40 @@ class VehiculoController extends Controller
                   ->orWhere('modelo', 'ilike', "%{$buscar}%")
                   ->orWhere('motor_cilindrada', 'ilike', "%{$buscar}%");
             });
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('marca')->orderBy('modelo')->orderBy('anio_inicio')->get();
+            $encabezados = ['ID', 'Marca', 'Modelo', 'Años', 'Motor / Cilindrada', 'Combustible', 'Repuestos Compatibles'];
+            $filas = $lista->map(fn($v) => [
+                (int) $v->id_vehiculo,
+                $v->marca,
+                $v->modelo,
+                "{$v->anio_inicio} - {$v->anio_fin}",
+                $v->motor_cilindrada ?? 'N/A',
+                $v->combustible ?? '-',
+                (int) $v->compatibilidades_count,
+            ])->toArray();
+
+            $subtitulos = [
+                'Marca: ' . ($request->marca ?: 'Todas')
+                    . ' | Modelo: ' . ($request->modelo ?: 'Todos')
+                    . ' | Año: ' . ($request->anio ?: 'Todos')
+                    . ' | Búsqueda: ' . ($request->buscar ?: '-'),
+            ];
+
+            return $exportador->exportarLista(
+                $export,
+                'catalogo_vehicular_' . now()->format('Ymd_His'),
+                'Catálogo Vehicular y Compatibilidades',
+                $subtitulos,
+                $encabezados,
+                $filas,
+                [],
+                ['TOTALES', '', $lista->count() . ' vehículos', '', '', '', (int) $lista->sum('compatibilidades_count')],
+                'landscape'
+            );
         }
 
         $vehiculos = $query->orderBy('marca')->orderBy('modelo')->orderBy('anio_inicio')->paginate(15)->withQueryString();

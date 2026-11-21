@@ -874,6 +874,12 @@
 
             <!-- User / Login Action -->
             <div class="d-flex align-items-center gap-2">
+                <button type="button" id="btnAbrirCarritoWeb" class="btn btn-sm btn-outline-dark position-relative fw-semibold"
+                        style="border-radius: 10px; padding: 7px 12px; font-size: 0.82rem;"
+                        onclick="abrirModalCarritoWeb()">
+                    <i class="bi bi-cart3 me-1"></i>Carrito
+                    <span id="badgeCarritoWeb" class="badge rounded-pill bg-primary ms-1">0</span>
+                </button>
                 @auth
                     @if(auth()->user()->id_rol === 5)
                         <div class="d-flex align-items-center gap-2">
@@ -1396,6 +1402,15 @@
                                             <i class="bi bi-patch-check"></i>
                                             <span>Consultar compatibilidad</span>
                                         </button>
+                                        @if((int)$p->stock_actual > 0)
+                                        <button type="button"
+                                                onclick='agregarAlCarritoWeb(@json(["id_producto" => $p->id_producto, "nombre_pieza" => $p->nombre_pieza, "codigo_oem" => $p->codigo_oem, "precio" => (float)$p->precio_venta_sugerido, "stock" => (int)$p->stock_actual]))'
+                                                class="btn btn-sm btn-success fw-semibold d-flex align-items-center justify-content-center gap-1"
+                                                style="border-radius: 10px; padding: 7px 12px; font-size: 0.78rem; border: none;">
+                                            <i class="bi bi-cart-plus-fill"></i>
+                                            <span>Agregar al carrito</span>
+                                        </button>
+                                        @endif
                                         <a href="{{ route('mis-cotizaciones.index', ['id_producto' => $p->id_producto]) }}"
                                            class="btn btn-sm btn-primary fw-semibold d-flex align-items-center justify-content-center gap-1"
                                            style="border-radius: 10px; padding: 7px 12px; font-size: 0.78rem; background: linear-gradient(135deg, #007AFF, #0055D4); border: none;">
@@ -1731,6 +1746,179 @@
             const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
             bsModal.show();
         }
+
+        // ── Carrito Web Directo + Compra Online ──
+        const STORAGE_KEY_CART = 'multipartes_carrito_web';
+
+        function obtenerCarritoWeb() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY_CART) || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function guardarCarritoWeb(items) {
+            localStorage.setItem(STORAGE_KEY_CART, JSON.stringify(items));
+            actualizarBadgeCarritoWeb();
+        }
+
+        function actualizarBadgeCarritoWeb() {
+            const items = obtenerCarritoWeb();
+            const totalQty = items.reduce((s, x) => s + (parseInt(x.cantidad) || 0), 0);
+            const badge = document.getElementById('badgeCarritoWeb');
+            if (badge) badge.textContent = totalQty;
+        }
+
+        function agregarAlCarritoWeb(prod) {
+            const items = obtenerCarritoWeb();
+            const ex = items.find(x => x.id_producto === prod.id_producto);
+            if (ex) {
+                if (ex.cantidad < prod.stock) ex.cantidad += 1;
+            } else {
+                items.push({ id_producto: prod.id_producto, nombre_pieza: prod.nombre_pieza, codigo_oem: prod.codigo_oem, precio: parseFloat(prod.precio), stock: parseInt(prod.stock), cantidad: 1 });
+            }
+            guardarCarritoWeb(items);
+            abrirModalCarritoWeb();
+        }
+
+        function cambiarCantCarritoWeb(idx, delta) {
+            const items = obtenerCarritoWeb();
+            if (!items[idx]) return;
+            const nueva = items[idx].cantidad + delta;
+            if (nueva <= 0) items.splice(idx, 1);
+            else items[idx].cantidad = Math.min(items[idx].stock || 999, nueva);
+            guardarCarritoWeb(items);
+            renderModalCarritoWeb();
+        }
+
+        function abrirModalCarritoWeb() {
+            renderModalCarritoWeb();
+            const modalEl = document.getElementById('modalCarritoWeb');
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+
+        function renderModalCarritoWeb() {
+            const items = obtenerCarritoWeb();
+            const tbody = document.getElementById('tbodyCarritoWeb');
+            const inputsContainer = document.getElementById('inputsCarritoWeb');
+            const totalEl = document.getElementById('totalCarritoWeb');
+            const btnConfirmar = document.getElementById('btnConfirmarCompraWeb');
+            tbody.innerHTML = '';
+            if (inputsContainer) inputsContainer.innerHTML = '';
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Tu carrito está vacío. Agrega repuestos desde el catálogo.</td></tr>';
+                totalEl.textContent = 'Bs. 0.00';
+                if (btnConfirmar) btnConfirmar.disabled = true;
+                return;
+            }
+
+            let total = 0;
+            items.forEach((it, idx) => {
+                const sub = it.cantidad * it.precio;
+                total += sub;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <div class="fw-semibold text-dark">${it.nombre_pieza}</div>
+                        <small class="text-muted">OEM: ${it.codigo_oem} · Bs. ${it.precio.toFixed(2)}</small>
+                    </td>
+                    <td class="text-center">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" onclick="cambiarCantCarritoWeb(${idx}, -1)">-</button>
+                            <span class="btn btn-light disabled fw-bold">${it.cantidad}</span>
+                            <button type="button" class="btn btn-outline-secondary" onclick="cambiarCantCarritoWeb(${idx}, 1)">+</button>
+                        </div>
+                    </td>
+                    <td class="text-end fw-bold font-monospace">Bs. ${sub.toFixed(2)}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm text-danger" onclick="cambiarCantCarritoWeb(${idx}, -999)"><i class="bi bi-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+
+                if (inputsContainer) {
+                    inputsContainer.innerHTML += `<input type="hidden" name="items[${idx}][id_producto]" value="${it.id_producto}">`
+                        + `<input type="hidden" name="items[${idx}][cantidad]" value="${it.cantidad}">`;
+                }
+            });
+
+            totalEl.textContent = 'Bs. ' + total.toFixed(2);
+            if (btnConfirmar) btnConfirmar.disabled = false;
+        }
+
+        document.addEventListener('DOMContentLoaded', actualizarBadgeCarritoWeb);
     </script>
+
+    <!-- ── Modal Carrito y Compra Directa Web ── -->
+    <div class="modal fade" id="modalCarritoWeb" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content modal-content-mac">
+                <div class="modal-header modal-header-mac">
+                    <h5 class="modal-title fw-bold text-dark m-0">
+                        <i class="bi bi-cart3 text-primary me-2"></i>Mi Carrito de Repuestos
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <form action="{{ route('mi-compra.store') }}" method="POST" onsubmit="localStorage.removeItem('multipartes_carrito_web');">
+                    @csrf
+                    <div id="inputsCarritoWeb"></div>
+                    <div class="modal-body modal-body-mac">
+                        <div class="table-responsive border rounded-3 mb-3">
+                            <table class="table align-middle mb-0" style="font-size:0.86rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Repuesto</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-end">Subtotal</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyCarritoWeb"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-3" style="background:#EFF6FF;border:1px solid #BFDBFE;">
+                            <span class="fw-bold text-dark">Total a Pagar:</span>
+                            <span id="totalCarritoWeb" class="fw-bold fs-4 text-primary font-monospace">Bs. 0.00</span>
+                        </div>
+
+                        @auth
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold text-secondary">CI / NIT Comprobante</label>
+                                <input type="text" name="ci_nit" class="form-control form-control-sm" placeholder="CI o NIT (Opcional)">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold text-secondary">Método de Pago</label>
+                                <select name="metodo_pago" class="form-select form-select-sm" required>
+                                    <option value="Transferencia/QR">Transferencia / QR</option>
+                                    <option value="Tarjeta Débito/Crédito">Tarjeta Débito/Crédito</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold text-secondary">N° Referencia / Nota</label>
+                                <input type="text" name="nro_referencia" class="form-control form-control-sm" placeholder="Ref. QR o comprobante">
+                            </div>
+                        </div>
+                        @endauth
+                    </div>
+                    <div class="modal-footer modal-footer-mac d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:10px;">Seguir Viendo</button>
+                        @auth
+                            <button type="submit" id="btnConfirmarCompraWeb" class="btn btn-success fw-semibold" style="border-radius:10px;">
+                                <i class="bi bi-check2-circle me-1"></i>Confirmar Pedido y Generar PDF
+                            </button>
+                        @else
+                            <a href="{{ route('login') }}" class="btn-mac-primary text-decoration-none">
+                                <i class="bi bi-box-arrow-in-right me-1"></i>Iniciar Sesión para Comprar
+                            </a>
+                        @endauth
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

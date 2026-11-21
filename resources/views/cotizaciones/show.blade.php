@@ -47,11 +47,17 @@
             </a>
         @endif
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap no-print">
+        <a href="{{ route('cotizaciones.exportar', [$cotizacion->id_cotizacion, 'pdf']) }}" class="btn btn-danger" style="border-radius:10px;font-size:0.85rem;font-weight:600;">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exportar PDF
+        </a>
+        <a href="{{ route('cotizaciones.exportar', [$cotizacion->id_cotizacion, 'excel']) }}" class="btn btn-success" style="border-radius:10px;font-size:0.85rem;font-weight:600;">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i>Exportar Excel
+        </a>
         <button type="button" onclick="window.print()" class="btn btn-outline-tuerca">
-            <i class="bi bi-printer me-1"></i>Imprimir / Guardar PDF
+            <i class="bi bi-printer me-1"></i>Imprimir
         </button>
-        <a href="{{ $urlWa }}" target="_blank" class="btn btn-success" style="border-radius:10px;font-size:0.85rem;font-weight:600;">
+        <a href="{{ $urlWa }}" target="_blank" class="btn btn-outline-success" style="border-radius:10px;font-size:0.85rem;font-weight:600;">
             <i class="bi bi-whatsapp me-1"></i>Enviar Proforma por WhatsApp
         </a>
         @if($estVisual === 'VIGENTE' && in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Vendedor', 'Cajero']))

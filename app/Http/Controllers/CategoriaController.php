@@ -5,15 +5,39 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Categoria;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class CategoriaController extends Controller
 {
     /**
      * CU07: Listar categorías (vista con modales CRUD).
      */
-    public function index()
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $categorias = Categoria::withCount('productos')->orderBy('id_categoria')->get();
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $encabezados = ['ID', 'Nombre de Categoría', 'Descripción', 'Repuestos Asociados'];
+            $filas = $categorias->map(fn($c) => [
+                (int) $c->id_categoria,
+                $c->nombre,
+                $c->descripcion ?? '-',
+                (int) $c->productos_count,
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'categorias_repuestos_' . now()->format('Ymd_His'),
+                'Categorías de Repuestos',
+                ['Total categorías registradas: ' . $categorias->count()],
+                $encabezados,
+                $filas,
+                [],
+                ['TOTALES', '', '', (int) $categorias->sum('productos_count')]
+            );
+        }
+
         return view('categorias.index', compact('categorias'));
     }
 

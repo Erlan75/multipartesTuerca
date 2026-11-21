@@ -7,13 +7,15 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Producto;
 use App\Models\Categoria;
 use App\Models\AjusteInventario;
+use App\Services\ExportadorUniversalService;
+use Carbon\Carbon;
 
 class InventarioController extends Controller
 {
     /**
      * CU16: Monitorear alertas de stock mínimo y crítico.
      */
-    public function alertas(Request $request)
+    public function alertas(Request $request, ExportadorUniversalService $exportador)
     {
         $query = Producto::with(['categoria', 'codigosAlternativos'])
             ->where('estado', true)
@@ -43,6 +45,40 @@ class InventarioController extends Controller
                   ->orWhere('codigo_oem', 'ilike', "%{$buscar}%")
                   ->orWhere('nombre_pieza', 'ilike', "%{$buscar}%");
             });
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('stock_actual', 'asc')->orderBy('nombre_pieza', 'asc')->get();
+            $encabezados = ['SKU', 'Código OEM', 'Repuesto', 'Categoría', 'Stock Actual', 'Stock Mín.', 'Stock Seg.', 'Nivel Alerta', 'Precio (Bs.)'];
+            $filas = $lista->map(function ($p) {
+                $nivelTexto = (int) $p->stock_actual === 0
+                    ? 'AGOTADO'
+                    : ((int) $p->stock_actual <= (int) $p->stock_minimo ? 'CRÍTICO' : 'SEGURIDAD');
+                return [
+                    $p->codigo_interno,
+                    $p->codigo_oem,
+                    $p->nombre_pieza,
+                    $p->categoria->nombre ?? 'General',
+                    (int) $p->stock_actual,
+                    (int) $p->stock_minimo,
+                    (int) $p->stock_seguridad,
+                    $nivelTexto,
+                    round((float) $p->precio_venta_sugerido, 2),
+                ];
+            })->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'alertas_stock_critico_' . now()->format('Ymd_His'),
+                'Monitoreo y Alertas de Stock Crítico',
+                ['Nivel: ' . ($request->nivel ?: 'Todos') . ' | Búsqueda: ' . ($request->buscar ?: 'Todas')],
+                $encabezados,
+                $filas,
+                ['Productos en Alerta' => (string) $lista->count()],
+                [],
+                'landscape'
+            );
         }
 
         $productosEnAlerta = $query->orderBy('stock_actual', 'asc')
@@ -77,7 +113,7 @@ class InventarioController extends Controller
     /**
      * CU17 / CU18: Listar historial de ajustes y formulario para registrar nuevos.
      */
-    public function ajustes(Request $request)
+    public function ajustes(Request $request, ExportadorUniversalService $exportador)
     {
         $query = AjusteInventario::with(['producto.categoria', 'usuario.rol']);
 
@@ -100,6 +136,34 @@ class InventarioController extends Controller
 
         if ($request->filled('fecha_hasta')) {
             $query->whereDate('fecha_ajuste', '<=', $request->fecha_hasta);
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('fecha_ajuste', 'desc')->orderBy('id_ajuste', 'desc')->get();
+            $encabezados = ['ID', 'Fecha', 'SKU', 'Repuesto', 'Tipo Ajuste', 'Cantidad', 'Motivo', 'Responsable'];
+            $filas = $lista->map(fn($a) => [
+                (int) $a->id_ajuste,
+                optional($a->fecha_ajuste)->format('d/m/Y H:i') ?? '-',
+                $a->producto->codigo_interno ?? '-',
+                $a->producto->nombre_pieza ?? '-',
+                $a->tipo_ajuste,
+                (int) $a->cantidad_ajustada,
+                $a->motivo ?? '-',
+                $a->usuario->nombre_completo ?? 'Sistema',
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'ajustes_inventario_' . now()->format('Ymd_His'),
+                'Historial de Ajustes de Inventario y Salidas Internas',
+                ['Tipo: ' . ($request->tipo_ajuste ?: 'Todos') . ' | Rango: ' . ($request->fecha_desde ?: 'Inicio') . ' al ' . ($request->fecha_hasta ?: 'Actual')],
+                $encabezados,
+                $filas,
+                ['Total Ajustes' => (string) $lista->count()],
+                [],
+                'landscape'
+            );
         }
 
         $ajustes = $query->orderBy('fecha_ajuste', 'desc')

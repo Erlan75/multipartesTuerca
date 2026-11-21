@@ -6,13 +6,14 @@ use Illuminate\Http\Request;
 use App\Models\Cliente;
 use App\Models\Usuario;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class ClienteController extends Controller
 {
     /**
      * Listado paginado de clientes particulares, talleres mecánicos y empresas/flotas.
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $query = Cliente::withCount(['ventas as ventas_completadas_count' => function ($q) {
             $q->where('estado', 'Completada');
@@ -46,6 +47,34 @@ class ClienteController extends Controller
 
         if ($request->filled('con_descuento') && $request->con_descuento === '1') {
             $query->where('descuento_frecuente', '>', 0);
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('id_cliente', 'desc')->get();
+            $encabezados = ['ID', 'Nombre / Razón Social', 'CI / NIT', 'Teléfono', 'Segmento', 'Desc. Frec. (%)', 'Compras', 'Total Consumido (Bs.)'];
+            $filas = $lista->map(fn($cl) => [
+                (int) $cl->id_cliente,
+                $cl->nombre_razon_social,
+                $cl->ci_nit ?: 'S/N',
+                $cl->telefono ?? '-',
+                $cl->tipo_cliente,
+                number_format((float) $cl->descuento_frecuente, 1) . '%',
+                (int) $cl->ventas_completadas_count,
+                round((float) ($cl->total_consumido ?? 0), 2),
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'clientes_talleres_' . now()->format('Ymd_His'),
+                'Cartera de Clientes Particulares y Talleres',
+                ['Segmento: ' . ($request->tipo_cliente ?: 'Todos') . ' | Búsqueda: ' . ($request->buscar ?: 'Todas')],
+                $encabezados,
+                $filas,
+                ['Total Clientes' => (string) $lista->count()],
+                ['TOTALES', '', '', '', '', '', (int) $lista->sum('ventas_completadas_count'), round((float) $lista->sum('total_consumido'), 2)],
+                'landscape'
+            );
         }
 
         $clientes = $query->orderBy('id_cliente', 'desc')

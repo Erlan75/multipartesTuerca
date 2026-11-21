@@ -7,13 +7,14 @@ use App\Models\Producto;
 use App\Models\Categoria;
 use App\Models\Vehiculo;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class ProductoController extends Controller
 {
     /**
      * CU08, CU12, CU13, CU14: Listar productos con búsqueda técnica multicriterio y coordenadas de almacén.
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $query = Producto::with(['categoria', 'codigosAlternativos']);
 
@@ -37,6 +38,43 @@ class ProductoController extends Controller
 
         if ($request->filled('estado')) {
             $query->where('estado', $request->estado === 'activo');
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('id_producto')->get();
+            $encabezados = ['SKU', 'Código OEM', 'Nombre de Pieza', 'Categoría', 'Marca', 'Ubicación', 'Stock', 'Mín.', 'Precio (Bs.)', 'Estado'];
+            $filas = $lista->map(fn($p) => [
+                $p->codigo_interno,
+                $p->codigo_oem,
+                $p->nombre_pieza,
+                $p->categoria->nombre ?? 'General',
+                $p->marca_fabricante ?? '-',
+                trim(($p->pasillo ?? '-') . '/' . ($p->estante ?? '-') . '/' . ($p->nivel_gaveta ?? '-')),
+                (int) $p->stock_actual,
+                (int) $p->stock_minimo,
+                round((float) $p->precio_venta_sugerido, 2),
+                $p->estado ? 'Activo' : 'Inactivo',
+            ])->toArray();
+
+            $subtitulos = [
+                'Búsqueda: ' . ($request->buscar ?: 'Todas')
+                    . ' | Categoría: ' . ($request->filled('id_categoria') ? (Categoria::find($request->id_categoria)?->nombre ?? 'Filtrada') : 'Todas')
+                    . ' | Estado: ' . ($request->estado ?: 'Todos'),
+            ];
+            $totales = ['TOTALES', '', $lista->count() . ' ítems', '', '', '', (int) $lista->sum('stock_actual'), '', '', ''];
+
+            return $exportador->exportarLista(
+                $export,
+                'catalogo_repuestos_' . now()->format('Ymd_His'),
+                'Catálogo General de Repuestos e Inventario',
+                $subtitulos,
+                $encabezados,
+                $filas,
+                ['Total Ítems' => (string) $lista->count(), 'Stock Total' => number_format((int) $lista->sum('stock_actual')) . ' u.'],
+                $totales,
+                'landscape'
+            );
         }
 
         $productos = $query->orderBy('id_producto')->paginate(15)->withQueryString();

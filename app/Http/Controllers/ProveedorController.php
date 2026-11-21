@@ -6,13 +6,14 @@ use Illuminate\Http\Request;
 use App\Models\Proveedor;
 use App\Models\NotaCompra;
 use App\Helpers\Bitacora;
+use App\Services\ExportadorUniversalService;
 
 class ProveedorController extends Controller
 {
     /**
      * CU19: Listado de proveedores mayoristas con filtros y paginación.
      */
-    public function index(Request $request)
+    public function index(Request $request, ExportadorUniversalService $exportador)
     {
         $query = Proveedor::query();
 
@@ -32,6 +33,34 @@ class ProveedorController extends Controller
 
         if ($request->filled('estado')) {
             $query->where('estado', $request->estado === 'activo');
+        }
+
+        $export = strtolower((string) $request->input('export', ''));
+        if (in_array($export, ['pdf', 'excel'], true)) {
+            $lista = $query->orderBy('razon_social', 'asc')->get();
+            $encabezados = ['ID', 'Razón Social', 'NIT', 'Contacto', 'Teléfono', 'Correo', 'Condición Comercial', 'Estado'];
+            $filas = $lista->map(fn($pr) => [
+                (int) $pr->id_proveedor,
+                $pr->razon_social,
+                $pr->nit ?? '-',
+                $pr->contacto_nombre ?? '-',
+                $pr->telefono ?? '-',
+                $pr->correo ?? '-',
+                $pr->condicion_comercial,
+                $pr->estado ? 'Activo' : 'Inactivo',
+            ])->toArray();
+
+            return $exportador->exportarLista(
+                $export,
+                'proveedores_' . now()->format('Ymd_His'),
+                'Directorio de Proveedores e Importadores',
+                ['Condición: ' . ($request->condicion ?: 'Todas') . ' | Estado: ' . ($request->estado ?: 'Todos')],
+                $encabezados,
+                $filas,
+                ['Total Proveedores' => (string) $lista->count()],
+                [],
+                'landscape'
+            );
         }
 
         $proveedores = $query->orderBy('razon_social', 'asc')

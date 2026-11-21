@@ -16,7 +16,8 @@
             Registro consolidado de transacciones de mostrador, emisión de tickets térmicos y anulaciones controladas.
         </p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        @include('partials.export_buttons')
         <a href="{{ route('ventas.pos') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
             <i class="bi bi-cart-plus me-1"></i>Nueva Venta en POS
         </a>

@@ -16,7 +16,8 @@
             Directorio comercial de propietarios particulares, talleres mecánicos aliados y empresas con flotas vehiculares.
         </p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        @include('partials.export_buttons')
         <a href="{{ route('clientes.create') }}" class="btn btn-tuerca" style="padding:0.55rem 1.25rem;font-size:0.85rem;">
             <i class="bi bi-person-plus-fill me-1"></i>Nuevo Cliente / Taller
         </a>

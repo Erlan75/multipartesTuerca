@@ -87,7 +87,13 @@
             </a>
         </div>
 
-        <button type="button" onclick="window.print()" class="btn btn-gold">
+        <a href="{{ route('ventas.pdf', $venta->id_venta) }}" class="btn btn-danger btn-sm" style="border-radius:10px;font-weight:600;padding:0.45rem 0.9rem;">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF
+        </a>
+        <a href="{{ route('ventas.exportar', [$venta->id_venta, 'excel']) }}" class="btn btn-success btn-sm" style="border-radius:10px;font-weight:600;padding:0.45rem 0.9rem;">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i>Excel
+        </a>
+        <button type="button" onclick="window.print()" class="btn btn-gold {{ request('autoprint') == '1' ? 'shadow ring-2 ring-amber-400' : '' }}">
             <i class="bi bi-printer-fill me-1"></i>Imprimir Comprobante
         </button>
     </div>
@@ -104,6 +110,7 @@
     <div class="ticket-80mm">
         <div class="text-center">
             <div style="font-weight:bold;font-size:15px;">MULTIPARTES EL TUERCA</div>
+            <div style="font-size:11px;">Casa Matriz · NIT: 4589214018</div>
             <div style="font-size:11px;">Repuestos Japoneses y Coreanos</div>
             <div style="font-size:11px;">Av. Cristóbal de Mendoza #450 (2do Anillo)</div>
             <div style="font-size:11px;">Santa Cruz de la Sierra - Bolivia</div>
@@ -312,6 +319,13 @@
             <div>Santa Cruz de la Sierra, Bolivia</div>
         </div>
     </div>
+@endif
+@if(request('autoprint') == '1')
+<script>
+    window.addEventListener('load', function () {
+        setTimeout(function () { window.print(); }, 350);
+    });
+</script>
 @endif
 @endsection
 

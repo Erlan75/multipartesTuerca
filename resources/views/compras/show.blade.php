@@ -17,7 +17,13 @@
             Factura / Nota de Entrega: <strong class="text-dark">{{ $compra->numero_factura_nota }}</strong> | Registrada el {{ \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y') }}
         </p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap no-print">
+        <a href="{{ route('compras.exportar', [$compra->id_compra, 'pdf']) }}" class="btn btn-danger" style="border-radius:10px;font-size:0.85rem;font-weight:600;">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exportar PDF
+        </a>
+        <a href="{{ route('compras.exportar', [$compra->id_compra, 'excel']) }}" class="btn btn-success" style="border-radius:10px;font-size:0.85rem;font-weight:600;">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i>Exportar Excel
+        </a>
         <button type="button" class="btn btn-outline-secondary" onclick="window.print()" style="border-radius:10px;font-size:0.85rem;">
             <i class="bi bi-printer me-1"></i>Imprimir Comprobante
         </button>
