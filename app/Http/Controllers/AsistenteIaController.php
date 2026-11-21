@@ -14,15 +14,15 @@ class AsistenteIaController extends Controller
     ) {}
 
     /**
-     * Paso 1: Procesa consultas analíticas Read-Only o prepara acciones transaccionales (CU39).
+     * Paso 1: Procesa consultas analíticas o guía paso a paso una operación comercial por voz o texto.
      */
     public function consultar(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'consulta' => 'required|string|min:2|max:500',
+            'consulta' => 'required|string|min:1|max:500',
         ], [
-            'consulta.required' => 'Por favor escribe o dicta una consulta para el asistente.',
-            'consulta.min'      => 'La consulta debe tener al menos 2 caracteres.',
+            'consulta.required' => 'Escríbeme o díctame qué necesitas y con gusto te ayudo.',
+            'consulta.min'      => 'Dime un poquito más para poder ayudarte.',
         ]);
 
         try {
@@ -38,20 +38,20 @@ class AsistenteIaController extends Controller
 
             return response()->json($respuesta);
         } catch (\Throwable $e) {
+            $msg = 'Uy, tuve un pequeño inconveniente para procesar eso. ¿Me lo puedes repetir con otras palabras?';
             return response()->json([
                 'ok'             => true,
                 'tipo'           => 'informacion',
                 'origen'         => 'local',
-                'texto_pantalla' => 'No fue posible procesar la consulta en este momento. Intenta consultar por repuesto, código OEM, rotación, rentabilidad o registrar una operación.',
-                'texto_voz'      => 'No fue posible procesar la consulta en este momento.',
+                'texto_pantalla' => $msg,
+                'texto_voz'      => $msg,
                 'datos_resumen'  => [],
             ]);
         }
     }
 
     /**
-     * Paso 2: Confirma o cancela una acción transaccional preparada mediante action_token,
-     * ejecutando directamente el procedimiento almacenado Smart-DB en PostgreSQL.
+     * Paso 2: Confirma o cancela una operación preparada tras revisión del usuario.
      */
     public function confirmar(Request $request): JsonResponse
     {
@@ -64,12 +64,15 @@ class AsistenteIaController extends Controller
         $sessionKey = "ai_pending_action.{$token}";
         $payload = session()->pull($sessionKey);
 
+        // Limpiar cualquier borrador conversacional residual al confirmar o cancelar
+        $this->assistantService->limpiarBorradorOperacion();
+
         if (!is_array($payload)) {
-            $msg = 'La solicitud de confirmación ya fue procesada o expiró. Vuelve a indicar la operación si deseas repetirla.';
+            $msg = 'Ese resumen ya fue procesado o pasó mucho tiempo desde que lo armamos. Si quieres, dímelo de nuevo y lo preparamos en un momento.';
             return response()->json([
                 'ok'             => false,
                 'tipo'           => 'error',
-                'origen'         => 'smartdb',
+                'origen'         => 'local',
                 'texto_pantalla' => $msg,
                 'texto_voz'      => $msg,
                 'datos_resumen'  => [],
@@ -77,7 +80,7 @@ class AsistenteIaController extends Controller
         }
 
         if (!empty($validated['cancelar'])) {
-            $msg = 'Operación cancelada. No se realizó ningún cambio en la base de datos.';
+            $msg = '¡Listo, cancelado! No se guardó ningún cambio. ¿Te ayudo con otra cosa?';
             return response()->json([
                 'ok'             => true,
                 'tipo'           => 'informacion',
@@ -90,11 +93,11 @@ class AsistenteIaController extends Controller
 
         $usuario = Auth::user();
         if (!$usuario || (int) ($payload['user_id'] ?? 0) !== (int) $usuario->id_usuario) {
-            $msg = 'El token de confirmación no corresponde al usuario autenticado actual.';
+            $msg = 'Esta operación fue preparada desde otra cuenta. Por seguridad, vuelve a pedirla desde tu sesión.';
             return response()->json([
                 'ok'             => false,
                 'tipo'           => 'restriccion',
-                'origen'         => 'smartdb',
+                'origen'         => 'local',
                 'texto_pantalla' => $msg,
                 'texto_voz'      => $msg,
                 'datos_resumen'  => [],
@@ -103,11 +106,11 @@ class AsistenteIaController extends Controller
 
         // Expiración de seguridad: 10 minutos
         if ((now()->timestamp - (int) ($payload['created_at'] ?? 0)) > 600) {
-            $msg = 'El borrador de confirmación expiró por seguridad (más de 10 minutos). Por favor vuelve a dictar o escribir la operación.';
+            $msg = 'Pasaron más de 10 minutos desde que preparamos este resumen, así que lo cerré por seguridad. Dime de nuevo y lo armamos enseguida.';
             return response()->json([
                 'ok'             => false,
                 'tipo'           => 'error',
-                'origen'         => 'smartdb',
+                'origen'         => 'local',
                 'texto_pantalla' => $msg,
                 'texto_voz'      => $msg,
                 'datos_resumen'  => [],
@@ -127,5 +130,23 @@ class AsistenteIaController extends Controller
         );
 
         return response()->json($resultado, $resultado['ok'] ? 200 : 422);
+    }
+
+    /**
+     * Reinicia la conversación y borra cualquier borrador pendiente en sesión.
+     */
+    public function limpiar(): JsonResponse
+    {
+        $this->assistantService->limpiarConversacionCompleta();
+        $msg = '¡Listo! Empezamos una charla nueva desde cero. ¿En qué te ayudo hoy?';
+
+        return response()->json([
+            'ok'             => true,
+            'tipo'           => 'informacion',
+            'origen'         => 'local',
+            'texto_pantalla' => $msg,
+            'texto_voz'      => $msg,
+            'datos_resumen'  => [],
+        ]);
     }
 }

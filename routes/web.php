@@ -66,6 +66,7 @@ Route::middleware('auth')->group(function () {
     // ── Asistente Inteligente Multimodal de Voz y Texto (Modo Analítico + Modo Transaccional) ──
     Route::post('/asistente/consultar', [AsistenteIaController::class, 'consultar'])->name('asistente.consultar');
     Route::post('/asistente-ia/confirmar', [AsistenteIaController::class, 'confirmar'])->name('asistente.confirmar');
+    Route::post('/asistente/limpiar', [AsistenteIaController::class, 'limpiar'])->name('asistente.limpiar');
 
     // ═════════════════════════════════════════════════════════════
     // CICLO 4: REPORTES Y ANALÍTICA SMART-DB (CU35 – CU38)

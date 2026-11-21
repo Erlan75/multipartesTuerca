@@ -919,14 +919,20 @@
                     <i class="fa-solid fa-robot text-base"></i>
                 </div>
                 <div>
-                    <div class="font-bold text-sm leading-tight">Asistente Inteligente El Tuerca</div>
+                    <div class="font-bold text-sm leading-tight">Asistente El Tuerca</div>
                     <div class="text-[11px] text-slate-300 flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="aiStatusSubtitle">Consultas por voz o texto en tiempo real</span>
+                        <span id="aiStatusSubtitle">Listo para ayudarte por voz o texto</span>
                     </div>
                 </div>
             </div>
             <div class="flex items-center gap-1.5">
+                <button type="button" id="aiResetBtn" onclick="limpiarCharlaAi()"
+                        class="px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 text-[10.5px] font-semibold border-0 transition"
+                        title="Nueva charla / Limpiar conversación">
+                    <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                    <span class="hidden sm:inline">Nueva charla</span>
+                </button>
                 <button type="button" id="aiMuteBtn" onclick="toggleAiVoiceMute()"
                         class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border-0 transition"
                         title="Activar / Silenciar respuesta por voz">
@@ -942,39 +948,39 @@
 
         <!-- Chips de Sugerencias Rápidas -->
         <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto" style="scrollbar-width: thin;">
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Quiero registrar una venta')">
+                <i class="fa-solid fa-cart-shopping text-emerald-600 mr-1"></i>Registrar venta
+            </button>
             <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Qué repuestos están en stock crítico?')">
-                <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i>Stock crítico
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i>Stock bajo
             </button>
             <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Mostrar rotación de repuestos y productos hueso')">
                 <i class="fa-solid fa-arrows-rotate text-blue-600 mr-1"></i>Rotación
             </button>
             @if(auth()->user()->rol->nombre_rol === 'Administrador')
-            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Cuál es la rentabilidad y margen real actual?')">
-                <i class="fa-solid fa-chart-line text-emerald-600 mr-1"></i>Rentabilidad
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Cómo vamos con la rentabilidad y ganancias?')">
+                <i class="fa-solid fa-chart-line text-emerald-600 mr-1"></i>Ganancias
             </button>
             @endif
             @if(in_array(auth()->user()->rol->nombre_rol, ['Administrador', 'Cajero']))
-            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Balance de medios de pago y estado de caja')">
-                <i class="fa-solid fa-scale-balanced text-indigo-600 mr-1"></i>Balance pagos
+            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('¿Cómo está la caja y los pagos de hoy?')">
+                <i class="fa-solid fa-scale-balanced text-indigo-600 mr-1"></i>Caja y pagos
             </button>
             @endif
             <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Buscar repuestos compatibles para Vitara')">
                 <i class="fa-solid fa-car text-sky-600 mr-1"></i>Compatibilidad
             </button>
-            <button type="button" class="ai-chip" onclick="enviarSugerenciaAi('Ubicación y stock de pastillas de freno')">
-                <i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>Ubicación
-            </button>
         </div>
 
         <!-- Historial de Conversación -->
         <div id="aiChatMessages" class="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-50/50 text-xs">
-            <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-700">
+            <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-700" id="aiWelcomeCard">
                 <div class="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
-                    <i class="fa-solid fa-circle-info text-blue-600"></i>
-                    Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}
+                    <i class="fa-solid fa-hand-sparkles text-blue-600"></i>
+                    ¡Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}!
                 </div>
                 <p class="mb-0 leading-relaxed">
-                    Soy tu asistente inteligente por <strong>voz o texto</strong>. Puedo consultar stock, ubicaciones, rotación, rentabilidad y balances, o <strong>preparar ventas, cotizaciones, compras y ajustes de inventario</strong> para tu confirmación antes de ejecutarlos.
+                    Háblame o escríbeme con toda confianza, como en el mostrador. Puedo ayudarte a buscar repuestos, ver stock y ventas del día, o <strong>armar contigo una venta, cotización, compra o merma paso a paso</strong> antes de guardarla.
                 </p>
             </div>
         </div>
@@ -1063,28 +1069,31 @@
             const div = document.createElement('div');
 
             let bordeClase = 'bg-white border border-slate-200';
-            let iconoTitulo = '<i class="fa-solid fa-bolt text-blue-600"></i> Respuesta Ejecutiva';
+            let iconoTitulo = '<i class="fa-solid fa-comment-dots text-blue-600"></i> Asistente El Tuerca';
             if (data.tipo === 'restriccion') {
                 bordeClase = 'bg-amber-50 border border-amber-300';
-                iconoTitulo = '<i class="fa-solid fa-shield-halved text-amber-600"></i> Control de Acceso por Rol';
+                iconoTitulo = '<i class="fa-solid fa-shield-halved text-amber-600"></i> Permisos de tu cuenta';
             } else if (data.tipo === 'error') {
                 bordeClase = 'bg-rose-50 border border-rose-300';
-                iconoTitulo = '<i class="fa-solid fa-circle-exclamation text-rose-600"></i> Validación Smart-DB';
+                iconoTitulo = '<i class="fa-solid fa-circle-exclamation text-rose-600"></i> Revisemos este dato';
             } else if (data.tipo === 'ejecucion_exitosa') {
                 bordeClase = 'bg-emerald-50 border border-emerald-300';
-                iconoTitulo = '<i class="fa-solid fa-circle-check text-emerald-600"></i> Transacción Ejecutada';
+                iconoTitulo = '<i class="fa-solid fa-circle-check text-emerald-600"></i> ¡Operación Registrada!';
             } else if (data.tipo === 'confirmacion') {
                 bordeClase = 'bg-blue-50/70 border-2 border-blue-300';
-                iconoTitulo = '<i class="fa-solid fa-clipboard-check text-blue-700"></i> Confirmación Requerida';
+                iconoTitulo = '<i class="fa-solid fa-clipboard-check text-blue-700"></i> Revisa y confirma';
+            } else if (data.tipo === 'aclaracion') {
+                bordeClase = 'bg-sky-50/70 border border-sky-200';
+                iconoTitulo = '<i class="fa-solid fa-comments text-sky-600"></i> Seguimos armándolo';
             }
 
             div.className = `${bordeClase} rounded-2xl rounded-tl-sm p-3 shadow-sm text-slate-800 space-y-2`;
 
             const badgeOrigen = data.origen === 'gemini'
-                ? '<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">IA Gemini</span>'
+                ? '<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">IA El Tuerca</span>'
                 : (data.origen === 'smartdb'
-                    ? '<span class="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold">Smart-DB SP</span>'
-                    : '<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">Smart-DB Directo</span>');
+                    ? '<span class="px-1.5 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-bold">Confirmado</span>'
+                    : '<span class="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold">Mostrador</span>');
 
             // 1. Tabla de datos analíticos
             let tablaHtml = '';
@@ -1170,17 +1179,22 @@
                 `;
             }
 
-            // 3. Botón directo a Ticket Térmico 80mm / Comprobante tras ejecución exitosa
+            // 3. Botón directo a Ticket Térmico 80mm / PDF / Comprobante tras ejecución exitosa
             let enlaceHtml = '';
-            if (data.enlace_comprobante) {
-                enlaceHtml = `
-                    <div class="pt-1">
-                        <a href="${escaparHtmlAi(data.enlace_comprobante)}" target="_blank"
-                           class="inline-flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] text-decoration-none shadow-sm transition">
-                            <i class="fa-solid fa-receipt"></i> ${escaparHtmlAi(data.etiqueta_enlace || 'Abrir Comprobante')}
-                        </a>
-                    </div>
-                `;
+            if (data.enlace_comprobante || data.enlace_pdf) {
+                const btnPrincipal = data.enlace_comprobante ? `
+                    <a href="${escaparHtmlAi(data.enlace_comprobante)}" target="_blank"
+                       class="inline-flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] text-decoration-none shadow-sm transition">
+                        <i class="fa-solid fa-receipt"></i> ${escaparHtmlAi(data.etiqueta_enlace || 'Abrir Comprobante')}
+                    </a>
+                ` : '';
+                const btnPdf = data.enlace_pdf ? `
+                    <a href="${escaparHtmlAi(data.enlace_pdf)}" target="_blank"
+                       class="inline-flex items-center gap-1.5 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] text-decoration-none shadow-sm transition">
+                        <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
+                    </a>
+                ` : '';
+                enlaceHtml = `<div class="pt-1 flex flex-wrap gap-1.5">${btnPrincipal}${btnPdf}</div>`;
             }
 
             div.innerHTML = `
@@ -1190,7 +1204,7 @@
                     </span>
                     ${badgeOrigen}
                 </div>
-                <p class="mb-0 leading-relaxed text-slate-700">${escaparHtmlAi(data.texto_pantalla || '')}</p>
+                <p class="mb-0 leading-relaxed text-slate-700 whitespace-pre-line">${escaparHtmlAi(data.texto_pantalla || '')}</p>
                 ${tablaHtml}
                 ${confirmacionHtml}
                 ${enlaceHtml}
@@ -1199,14 +1213,44 @@
             chat.scrollTop = chat.scrollHeight;
         }
 
+        async function limpiarCharlaAi() {
+            const chat = document.getElementById('aiChatMessages');
+            const welcome = document.getElementById('aiWelcomeCard');
+            const subtitle = document.getElementById('aiStatusSubtitle');
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            subtitle.textContent = 'Reiniciando conversación...';
+
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const resp = await fetch("{{ route('asistente.limpiar') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                chat.innerHTML = '';
+                if (welcome) chat.appendChild(welcome);
+                agregarBurbujaRespuesta(data);
+            } catch (err) {
+                chat.innerHTML = '';
+                if (welcome) chat.appendChild(welcome);
+            } finally {
+                subtitle.textContent = 'Listo para ayudarte por voz o texto';
+            }
+        }
+
         async function confirmarAccionAi(actionToken, cancelar) {
             const btns = document.getElementById(`btnsConfirm_${actionToken}`);
             if (btns) {
-                btns.innerHTML = `<span class="text-[11px] font-semibold text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i>${cancelar ? 'Cancelando operación...' : 'Ejecutando transacción en PostgreSQL...'}</span>`;
+                btns.innerHTML = `<span class="text-[11px] font-semibold text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i>${cancelar ? 'Cancelando...' : 'Guardando operación...'}</span>`;
             }
 
             const subtitle = document.getElementById('aiStatusSubtitle');
-            subtitle.textContent = cancelar ? 'Cancelando borrador...' : 'Ejecutando procedimiento Smart-DB...';
+            subtitle.textContent = cancelar ? 'Cancelando...' : 'Registrando tu operación...';
 
             try {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -1221,27 +1265,27 @@
                 });
 
                 const data = await resp.json();
-                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                subtitle.textContent = 'Listo para ayudarte por voz o texto';
 
                 if (btns) {
                     btns.innerHTML = cancelar
-                        ? '<span class="text-[11px] font-bold text-slate-500"><i class="fa-solid fa-ban mr-1"></i>Operación cancelada</span>'
+                        ? '<span class="text-[11px] font-bold text-slate-500"><i class="fa-solid fa-ban mr-1"></i>Cancelado</span>'
                         : (data.ok
-                            ? '<span class="text-[11px] font-bold text-emerald-700"><i class="fa-solid fa-check-circle mr-1"></i>Confirmada y ejecutada</span>'
-                            : '<span class="text-[11px] font-bold text-rose-600"><i class="fa-solid fa-circle-xmark mr-1"></i>Rechazada por Smart-DB</span>');
+                            ? '<span class="text-[11px] font-bold text-emerald-700"><i class="fa-solid fa-check-circle mr-1"></i>¡Listo y guardado!</span>'
+                            : '<span class="text-[11px] font-bold text-rose-600"><i class="fa-solid fa-circle-xmark mr-1"></i>No se pudo completar</span>');
                 }
 
                 agregarBurbujaRespuesta(data);
                 hablarRespuestaEnEspanol(data.texto_voz || data.texto_pantalla || '');
             } catch (err) {
-                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                subtitle.textContent = 'Listo para ayudarte por voz o texto';
                 if (btns) {
-                    btns.innerHTML = '<span class="text-[11px] font-bold text-rose-600">Error de conexión al confirmar</span>';
+                    btns.innerHTML = '<span class="text-[11px] font-bold text-rose-600">Se perdió la conexión al confirmar</span>';
                 }
                 agregarBurbujaRespuesta({
                     tipo: 'error',
-                    origen: 'smartdb',
-                    texto_pantalla: 'No se pudo completar la confirmación por un error de red. Verifica tu conexión e intenta nuevamente.',
+                    origen: 'local',
+                    texto_pantalla: 'Uy, se cortó un momento la conexión. Revisa tu internet e intenta nuevamente.',
                     datos_resumen: []
                 });
             }
@@ -1251,7 +1295,7 @@
             agregarBurbujaUsuario(consultaTexto);
 
             const subtitle = document.getElementById('aiStatusSubtitle');
-            subtitle.textContent = 'Consultando base de datos PostgreSQL...';
+            subtitle.textContent = 'Revisando en el sistema...';
 
             try {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -1266,15 +1310,15 @@
                 });
 
                 const data = await resp.json();
-                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                subtitle.textContent = 'Listo para ayudarte por voz o texto';
 
                 agregarBurbujaRespuesta(data);
                 hablarRespuestaEnEspanol(data.texto_voz || data.texto_pantalla || '');
             } catch (err) {
-                subtitle.textContent = 'Consultas por voz o texto en tiempo real';
+                subtitle.textContent = 'Listo para ayudarte por voz o texto';
                 agregarBurbujaRespuesta({
                     origen: 'local',
-                    texto_pantalla: 'No se pudo conectar con el servidor en este instante. Verifica tu sesión e intenta nuevamente.',
+                    texto_pantalla: 'No pude comunicarme con el servidor en este momento. ¿Intentamos de nuevo?',
                     datos_resumen: []
                 });
             }
