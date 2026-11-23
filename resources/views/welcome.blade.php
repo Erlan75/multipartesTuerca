@@ -1403,8 +1403,17 @@
                                             <span>Consultar compatibilidad</span>
                                         </button>
                                         @if((int)$p->stock_actual > 0)
+                                        @php
+                                            $itemCarritoWeb = [
+                                                'id_producto'  => (int) $p->id_producto,
+                                                'nombre_pieza' => (string) $p->nombre_pieza,
+                                                'codigo_oem'   => (string) ($p->codigo_oem ?? ''),
+                                                'precio'       => (float) $p->precio_venta_sugerido,
+                                                'stock'        => (int) $p->stock_actual,
+                                            ];
+                                        @endphp
                                         <button type="button"
-                                                onclick='agregarAlCarritoWeb(@json(["id_producto" => $p->id_producto, "nombre_pieza" => $p->nombre_pieza, "codigo_oem" => $p->codigo_oem, "precio" => (float)$p->precio_venta_sugerido, "stock" => (int)$p->stock_actual]))'
+                                                onclick="agregarAlCarritoWeb({{ \Illuminate\Support\Js::from($itemCarritoWeb) }})"
                                                 class="btn btn-sm btn-success fw-semibold d-flex align-items-center justify-content-center gap-1"
                                                 style="border-radius: 10px; padding: 7px 12px; font-size: 0.78rem; border: none;">
                                             <i class="bi bi-cart-plus-fill"></i>
