@@ -14,7 +14,7 @@ class AsistenteIaController extends Controller
     ) {}
 
     /**
-     * Paso 1: Procesa consultas analíticas o guía paso a paso una operación comercial por voz o texto.
+     * Paso 1: Procesa consultas del sistema/datos o guía paso a paso una operación comercial por voz o texto.
      */
     public function consultar(Request $request): JsonResponse
     {
@@ -38,7 +38,8 @@ class AsistenteIaController extends Controller
 
             return response()->json($respuesta);
         } catch (\Throwable $e) {
-            $msg = 'Uy, tuve un pequeño inconveniente para procesar eso. ¿Me lo puedes repetir con otras palabras?';
+            \Illuminate\Support\Facades\Log::warning('AsistenteIaController::consultar error: ' . $e->getMessage());
+            $msg = 'Perdón, tuve un pequeño enredo al procesar eso. ¿Me lo puedes repetir con otras palabras?';
             return response()->json([
                 'ok'             => true,
                 'tipo'           => 'informacion',
@@ -52,6 +53,7 @@ class AsistenteIaController extends Controller
 
     /**
      * Paso 2: Confirma o cancela una operación preparada tras revisión del usuario.
+     * Si el usuario cancela, conserva el borrador en sesión por 5 minutos para ediciones rápidas.
      */
     public function confirmar(Request $request): JsonResponse
     {
@@ -64,7 +66,6 @@ class AsistenteIaController extends Controller
         $sessionKey = "ai_pending_action.{$token}";
         $payload = session()->pull($sessionKey);
 
-        // Limpiar cualquier borrador conversacional residual al confirmar o cancelar
         $this->assistantService->limpiarBorradorOperacion();
 
         if (!is_array($payload)) {
@@ -80,7 +81,8 @@ class AsistenteIaController extends Controller
         }
 
         if (!empty($validated['cancelar'])) {
-            $msg = '¡Listo, cancelado! No se guardó ningún cambio. ¿Te ayudo con otra cosa?';
+            $this->assistantService->guardarBorradorCancelado($payload);
+            $msg = '¡Listo, cancelé ese resumen! No se guardó ningún cambio. Si solo querías ajustar algo (por ejemplo la cantidad, el descuento o la forma de pago), dímelo ahora y lo corregimos al instante.';
             return response()->json([
                 'ok'             => true,
                 'tipo'           => 'informacion',
@@ -133,7 +135,7 @@ class AsistenteIaController extends Controller
     }
 
     /**
-     * Reinicia la conversación y borra cualquier borrador pendiente en sesión.
+     * Reinicia la conversación y borra cualquier borrador pendiente o cancelado en sesión.
      */
     public function limpiar(): JsonResponse
     {

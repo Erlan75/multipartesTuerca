@@ -980,7 +980,7 @@
                     ¡Hola, {{ Str::words(auth()->user()->nombre_completo, 2, '') }}!
                 </div>
                 <p class="mb-0 leading-relaxed">
-                    Háblame o escríbeme con toda confianza, como en el mostrador. Puedo ayudarte a buscar repuestos, ver stock y ventas del día, o <strong>armar contigo una venta, cotización, compra o merma paso a paso</strong> antes de guardarla.
+                    Háblame o escríbeme con toda confianza, como en el mostrador. Puedo responderte sobre cualquier parte del sistema (roles, proveedores, stock, ventas, caja) o <strong>armar contigo paso a paso una venta, cotización, compra (incluso con repuesto nuevo), ajuste o cliente</strong> antes de guardarlo.
                 </p>
             </div>
         </div>
