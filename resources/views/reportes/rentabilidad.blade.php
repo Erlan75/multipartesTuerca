@@ -85,6 +85,61 @@
         </form>
     </div>
 
+    <!-- Gráficos Analíticos (CU36) -->
+    @if($filas->isEmpty())
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center text-slate-400 text-sm">
+            <i class="fa-solid fa-chart-column text-2xl text-slate-300 mb-2 block"></i>
+            Sin datos suficientes para generar gráficos analíticos en el período seleccionado.
+        </div>
+    @else
+        @php
+            $topRent = $filas->sortByDesc(fn($r) => (float) $r->utilidad_bruta)->take(8)->values();
+            $porCatRent = $filas->groupBy('categoria')->map(function ($grupo, $cat) {
+                $util = round((float) $grupo->sum('utilidad_bruta'), 2);
+                return [
+                    'categoria' => (string) ($cat ?: 'General'),
+                    'utilidad'  => $util,
+                    'valorGraf' => max(0.0, $util),
+                ];
+            })->sortByDesc('utilidad')->values();
+
+            $chartRentData = [
+                'topLabels'    => $topRent->map(fn($r) => \Illuminate\Support\Str::limit($r->nombre_pieza, 24))->all(),
+                'topFullNames' => $topRent->map(fn($r) => (string) $r->nombre_pieza)->all(),
+                'ingresos'     => $topRent->map(fn($r) => round((float) $r->ingresos_netos, 2))->all(),
+                'costos'       => $topRent->map(fn($r) => round((float) $r->costo_total_estimado, 2))->all(),
+                'utilidades'   => $topRent->map(fn($r) => round((float) $r->utilidad_bruta, 2))->all(),
+                'catLabels'    => $porCatRent->pluck('categoria')->all(),
+                'catValues'    => $porCatRent->pluck('valorGraf')->all(),
+                'catRaw'       => $porCatRent->pluck('utilidad')->all(),
+            ];
+        @endphp
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-8 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 mb-0">Top Repuestos: Ingresos Netos vs. Costo Estimado vs. Utilidad Bruta (Bs.)</h2>
+                        <p class="text-xs text-slate-500 mb-0">Los 8 repuestos con mayor utilidad bruta en el período</p>
+                    </div>
+                </div>
+                <div class="relative h-72">
+                    <canvas id="chartRentabilidadTop"></canvas>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                <div class="mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 mb-0">Distribución de Utilidad Bruta por Categoría</h2>
+                    <p class="text-xs text-slate-500 mb-0">Participación porcentual y monto en Bs.</p>
+                </div>
+                <div class="relative h-72">
+                    <canvas id="chartRentabilidadCat"></canvas>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Tabla de Rentabilidad -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
@@ -146,3 +201,82 @@
     </div>
 </div>
 @endsection
+
+@if($filas->isNotEmpty())
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof Chart === 'undefined') return;
+    const data = @json($chartRentData);
+    const fmtBs = (v) => 'Bs. ' + Number(v || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const ctxTop = document.getElementById('chartRentabilidadTop');
+    if (ctxTop) {
+        new Chart(ctxTop, {
+            type: 'bar',
+            data: {
+                labels: data.topLabels,
+                datasets: [
+                    { label: 'Ingresos Netos (Bs.)', data: data.ingresos, backgroundColor: '#2563EB', borderRadius: 6 },
+                    { label: 'Costo Estimado (Bs.)', data: data.costos, backgroundColor: '#D97706', borderRadius: 6 },
+                    { label: 'Utilidad Bruta (Bs.)', data: data.utilidades, backgroundColor: '#059669', borderRadius: 6 },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => data.topFullNames[items[0].dataIndex] || items[0].label,
+                            label: (ctx) => `${ctx.dataset.label}: ${fmtBs(ctx.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { beginAtZero: true, ticks: { callback: (v) => 'Bs. ' + v, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    const ctxCat = document.getElementById('chartRentabilidadCat');
+    if (ctxCat) {
+        const totalCat = data.catValues.reduce((a, b) => a + b, 0) || 1;
+        new Chart(ctxCat, {
+            type: 'doughnut',
+            data: {
+                labels: data.catLabels,
+                datasets: [{
+                    data: data.catValues,
+                    backgroundColor: ['#059669', '#2563EB', '#0F172A', '#D97706', '#0D9488', '#4F46E5', '#64748B', '#E11D48'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 10.5 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const raw = data.catRaw[ctx.dataIndex] ?? ctx.parsed;
+                                const pct = ((ctx.parsed / totalCat) * 100).toFixed(1);
+                                return `${ctx.label}: ${fmtBs(raw)} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
+@endif

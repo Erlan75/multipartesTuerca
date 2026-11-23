@@ -229,6 +229,59 @@
             </div>
         @endif
 
+        <!-- Gráficos Analíticos (CU38 — solo en modo Estándar A4) -->
+        @if($filas->isEmpty())
+            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center text-slate-400 text-sm">
+                <i class="fa-solid fa-chart-pie text-2xl text-slate-300 mb-2 block"></i>
+                Sin recaudaciones completadas para graficar en el período y filtros seleccionados.
+            </div>
+        @else
+            @php
+                $sesionesAgrupadas = $filas->groupBy('id_sesion')->map(function ($grupo, $idSes) {
+                    $primero = $grupo->first();
+                    return [
+                        'id'       => (int) $idSes,
+                        'label'    => 'Caja #' . $idSes,
+                        'cajero'   => (string) ($primero->cajero_responsable ?? 'Cajero'),
+                        'neto'     => round((float) $grupo->sum('total_neto_recaudado'), 2),
+                        'tickets'  => (int) $grupo->sum('cantidad_tickets'),
+                    ];
+                })->sortBy('id')->take(10)->values();
+
+                $chartBalanceData = [
+                    'canalLabels'   => $resumenCanales->pluck('metodo_pago')->all(),
+                    'canalValues'   => $resumenCanales->map(fn($c) => round((float) $c->recaudado_neto, 2))->all(),
+                    'canalTickets'  => $resumenCanales->map(fn($c) => (int) $c->tickets)->all(),
+                    'sesionLabels'  => $sesionesAgrupadas->pluck('label')->all(),
+                    'sesionCajeros' => $sesionesAgrupadas->pluck('cajero')->all(),
+                    'sesionNetos'   => $sesionesAgrupadas->pluck('neto')->all(),
+                    'sesionTickets' => $sesionesAgrupadas->pluck('tickets')->all(),
+                ];
+            @endphp
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div class="lg:col-span-5 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                    <div class="mb-3">
+                        <h2 class="text-sm font-bold text-slate-900 mb-0">Recaudación por Canal de Pago (Bs.)</h2>
+                        <p class="text-xs text-slate-500 mb-0">Efectivo, Transferencia/QR, Tarjeta y Mixto</p>
+                    </div>
+                    <div class="relative h-72">
+                        <canvas id="chartBalanceCanales"></canvas>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                    <div class="mb-3">
+                        <h2 class="text-sm font-bold text-slate-900 mb-0">Ingresos Netos por Sesión / Turno de Caja (Bs.)</h2>
+                        <p class="text-xs text-slate-500 mb-0">Comparativo de recaudación neta por turno</p>
+                    </div>
+                    <div class="relative h-72">
+                        <canvas id="chartBalanceSesiones"></canvas>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Tabla Detallada por Turno / Cajero / Medio de Pago -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto">
@@ -280,3 +333,96 @@
     @endif
 </div>
 @endsection
+
+@if($formato !== 'termico' && $filas->isNotEmpty())
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof Chart === 'undefined') return;
+    const data = @json($chartBalanceData);
+    const fmtBs = (v) => 'Bs. ' + Number(v || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const mapaColorCanal = (nombre) => {
+        const n = String(nombre || '').toLowerCase();
+        if (n.includes('efectivo')) return '#059669';
+        if (n.includes('qr') || n.includes('transf')) return '#2563EB';
+        if (n.includes('tarjeta')) return '#0F172A';
+        return '#D97706';
+    };
+
+    const ctxCanales = document.getElementById('chartBalanceCanales');
+    if (ctxCanales) {
+        const total = data.canalValues.reduce((a, b) => a + b, 0) || 1;
+        new Chart(ctxCanales, {
+            type: 'doughnut',
+            data: {
+                labels: data.canalLabels,
+                datasets: [{
+                    data: data.canalValues,
+                    backgroundColor: data.canalLabels.map(mapaColorCanal),
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 10.5 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                const tkts = data.canalTickets[ctx.dataIndex] ?? 0;
+                                return `${ctx.label}: ${fmtBs(ctx.parsed)} (${pct}% · ${tkts} tkt)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const ctxSesiones = document.getElementById('chartBalanceSesiones');
+    if (ctxSesiones) {
+        new Chart(ctxSesiones, {
+            type: 'bar',
+            data: {
+                labels: data.sesionLabels,
+                datasets: [{
+                    label: 'Ingresos Netos (Bs.)',
+                    data: data.sesionNetos,
+                    backgroundColor: '#2563EB',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => {
+                                const idx = items[0].dataIndex;
+                                return `${data.sesionLabels[idx]} — ${data.sesionCajeros[idx]}`;
+                            },
+                            label: (ctx) => {
+                                const tkts = data.sesionTickets[ctx.dataIndex] ?? 0;
+                                return `Recaudado: ${fmtBs(ctx.parsed.y)} (${tkts} tickets)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10.5 } } },
+                    y: { beginAtZero: true, ticks: { callback: (v) => 'Bs. ' + v, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
+@endif

@@ -85,6 +85,47 @@
         </form>
     </div>
 
+    <!-- Gráficos Analíticos (CU37) -->
+    @if($filas->isEmpty())
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center text-slate-400 text-sm">
+            <i class="fa-solid fa-chart-bar text-2xl text-slate-300 mb-2 block"></i>
+            Sin datos suficientes para graficar compras por distribuidor en el período consultado.
+        </div>
+    @else
+        @php
+            $provOrd = $filas->sortByDesc(fn($r) => (float) $r->monto_total_comprado)->values();
+            $chartComprasData = [
+                'labels'    => $provOrd->map(fn($r) => \Illuminate\Support\Str::limit($r->razon_social, 24))->all(),
+                'fullNames' => $provOrd->map(fn($r) => (string) $r->razon_social)->all(),
+                'pagado'    => $provOrd->map(fn($r) => round((float) $r->monto_pagado, 2))->all(),
+                'pendiente' => $provOrd->map(fn($r) => round((float) $r->saldo_pendiente_credito, 2))->all(),
+                'totales'   => $provOrd->map(fn($r) => round((float) $r->monto_total_comprado, 2))->all(),
+            ];
+        @endphp
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-8 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                <div class="mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 mb-0">Monto Pagado vs. Saldo Pendiente a Crédito por Distribuidor (Bs.)</h2>
+                    <p class="text-xs text-slate-500 mb-0">Comparativo apilado de obligaciones liquidadas y pendientes</p>
+                </div>
+                <div class="relative h-72">
+                    <canvas id="chartComprasApilado"></canvas>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                <div class="mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 mb-0">Participación de Compras por Proveedor</h2>
+                    <p class="text-xs text-slate-500 mb-0">Distribución porcentual del volumen adquirido</p>
+                </div>
+                <div class="relative h-72">
+                    <canvas id="chartComprasDona"></canvas>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Tabla -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
@@ -150,3 +191,81 @@
     </div>
 </div>
 @endsection
+
+@if($filas->isNotEmpty())
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof Chart === 'undefined') return;
+    const data = @json($chartComprasData);
+    const fmtBs = (v) => 'Bs. ' + Number(v || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const ctxApilado = document.getElementById('chartComprasApilado');
+    if (ctxApilado) {
+        new Chart(ctxApilado, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Monto Pagado (Bs.)', data: data.pagado, backgroundColor: '#059669', borderRadius: 4 },
+                    { label: 'Saldo Pendiente Crédito (Bs.)', data: data.pendiente, backgroundColor: '#D97706', borderRadius: 4 },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => data.fullNames[items[0].dataIndex] || items[0].label,
+                            label: (ctx) => `${ctx.dataset.label}: ${fmtBs(ctx.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { stacked: true, beginAtZero: true, ticks: { callback: (v) => 'Bs. ' + v, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    const ctxDona = document.getElementById('chartComprasDona');
+    if (ctxDona) {
+        const total = data.totales.reduce((a, b) => a + b, 0) || 1;
+        new Chart(ctxDona, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.totales,
+                    backgroundColor: ['#0F172A', '#2563EB', '#059669', '#D97706', '#4F46E5', '#0D9488', '#64748B', '#E11D48'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 10.5 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                const full = data.fullNames[ctx.dataIndex] || ctx.label;
+                                return `${full}: ${fmtBs(ctx.parsed)} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
+@endif

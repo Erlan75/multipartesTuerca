@@ -94,6 +94,48 @@
         </form>
     </div>
 
+    <!-- Gráficos Analíticos (CU35) -->
+    @if($filas->isEmpty())
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center text-slate-400 text-sm">
+            <i class="fa-solid fa-chart-pie text-2xl text-slate-300 mb-2 block"></i>
+            Sin datos suficientes para generar gráficos de rotación con los filtros actuales.
+        </div>
+    @else
+        @php
+            $topRot = $filas->sortByDesc(fn($r) => (int) $r->unidades_vendidas)->take(8)->values();
+            $chartRotData = [
+                'distLabels'   => ['Alta Rotación', 'Rotación Media', 'Baja Rotación / Hueso'],
+                'distValues'   => [(int) $kpis->alta_rotacion, (int) $kpis->rotacion_media, (int) $kpis->baja_rotacion],
+                'topLabels'    => $topRot->map(fn($r) => \Illuminate\Support\Str::limit($r->nombre_pieza, 24))->all(),
+                'topFullNames' => $topRot->map(fn($r) => (string) $r->nombre_pieza)->all(),
+                'vendidas'     => $topRot->map(fn($r) => (int) $r->unidades_vendidas)->all(),
+                'stock'        => $topRot->map(fn($r) => (int) $r->stock_actual)->all(),
+            ];
+        @endphp
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                <div class="mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 mb-0">Distribución del Catálogo por Rotación</h2>
+                    <p class="text-xs text-slate-500 mb-0">Clasificación de desplazamiento de piezas activas</p>
+                </div>
+                <div class="relative h-72">
+                    <canvas id="chartRotacionDist"></canvas>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm" style="break-inside: avoid;">
+                <div class="mb-3">
+                    <h2 class="text-sm font-bold text-slate-900 mb-0">Top 8 Repuestos Más Vendidos: Unidades Vendidas vs. Stock Actual</h2>
+                    <p class="text-xs text-slate-500 mb-0">Comparativo de demanda del período frente a existencia actual</p>
+                </div>
+                <div class="relative h-72">
+                    <canvas id="chartRotacionTop"></canvas>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Tabla Analítica -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
@@ -164,3 +206,79 @@
     </div>
 </div>
 @endsection
+
+@if($filas->isNotEmpty())
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof Chart === 'undefined') return;
+    const data = @json($chartRotData);
+
+    const ctxDist = document.getElementById('chartRotacionDist');
+    if (ctxDist) {
+        const total = data.distValues.reduce((a, b) => a + b, 0) || 1;
+        new Chart(ctxDist, {
+            type: 'doughnut',
+            data: {
+                labels: data.distLabels,
+                datasets: [{
+                    data: data.distValues,
+                    backgroundColor: ['#059669', '#2563EB', '#E11D48'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 10.5 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                return `${ctx.label}: ${ctx.parsed} ítems (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const ctxTop = document.getElementById('chartRotacionTop');
+    if (ctxTop) {
+        new Chart(ctxTop, {
+            type: 'bar',
+            data: {
+                labels: data.topLabels,
+                datasets: [
+                    { label: 'Unidades Vendidas', data: data.vendidas, backgroundColor: '#2563EB', borderRadius: 6 },
+                    { label: 'Stock Actual', data: data.stock, backgroundColor: '#0F172A', borderRadius: 6 },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => data.topFullNames[items[0].dataIndex] || items[0].label,
+                            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} uds.`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
+@endif
