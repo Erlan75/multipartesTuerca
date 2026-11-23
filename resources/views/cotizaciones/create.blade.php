@@ -169,7 +169,7 @@
                     </div>
                     <div class="col-5">
                         <label class="form-label-dark">Descuento Máx. (%)</label>
-                        <input type="number" step="0.5" min="0" max="50" id="rapidoDescuento" class="form-control form-control-dark" value="0">
+                        <input type="number" step="0.01" min="0" max="50" id="rapidoDescuento" class="form-control form-control-dark" value="0">
                     </div>
                 </div>
             </div>

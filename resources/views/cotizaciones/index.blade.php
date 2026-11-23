@@ -303,7 +303,7 @@
                             <div class="row g-2 align-items-center">
                                 <div class="col-6">
                                     <label class="form-label-dark mb-1" style="color:#065F46;">Efectivo Recibido (Bs.)</label>
-                                    <input type="number" step="0.50" min="0" name="monto_recibido" id="convMontoRecibido"
+                                    <input type="number" step="0.01" min="0" name="monto_recibido" id="convMontoRecibido"
                                            class="form-control form-control-dark" oninput="recalcularConversion()">
                                 </div>
                                 <div class="col-6 text-end">

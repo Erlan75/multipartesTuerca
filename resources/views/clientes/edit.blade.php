@@ -54,7 +54,7 @@
                         <div class="col-md-4">
                             <label class="form-label-dark">Límite de Descuento Comercial (%)</label>
                             <div class="input-group">
-                                <input type="number" step="0.5" min="0" max="50" name="descuento_frecuente"
+                                <input type="number" step="0.01" min="0" max="50" name="descuento_frecuente"
                                        class="form-control form-control-dark"
                                        value="{{ old('descuento_frecuente', $cliente->descuento_frecuente) }}" required>
                                 <span class="input-group-text" style="border-radius:0 10px 10px 0;font-size:0.85rem;">%</span>

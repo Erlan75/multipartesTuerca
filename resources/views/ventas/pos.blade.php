@@ -182,7 +182,7 @@
                             </div>
                             <div class="col-3">
                                 <div class="input-group input-group-sm">
-                                    <input type="number" step="0.5" min="0" max="50" id="posDescuentoPct"
+                                    <input type="number" step="0.01" min="0" max="50" id="posDescuentoPct"
                                            class="form-control form-control-dark text-end" placeholder="0"
                                            oninput="calcularDesdePorcentaje(this.value)">
                                     <span class="input-group-text">%</span>
@@ -191,7 +191,7 @@
                             <div class="col-4">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Bs.</span>
-                                    <input type="number" step="0.50" min="0" name="descuento_total" id="posDescuentoBs"
+                                    <input type="number" step="0.01" min="0" name="descuento_total" id="posDescuentoBs"
                                            class="form-control form-control-dark text-end" value="0.00"
                                            oninput="calcularDesdeMontoBs(this.value)">
                                 </div>
@@ -245,7 +245,7 @@
                         <div class="row g-2 align-items-center">
                             <div class="col-6">
                                 <label class="form-label-dark mb-1" style="color:#065F46;">Monto Recibido (Bs.)</label>
-                                <input type="number" step="0.50" min="0" name="monto_recibido" id="posMontoRecibido"
+                                <input type="number" step="0.01" min="0" name="monto_recibido" id="posMontoRecibido"
                                        class="form-control form-control-dark fw-bold" oninput="recalcularVueltoPos()">
                                 <div class="d-flex gap-1 mt-1 flex-wrap">
                                     <button type="button" class="btn btn-sm btn-light border py-0 px-2" style="font-size:0.7rem;" onclick="fijarBillete(50)">Bs.50</button>
@@ -273,12 +273,12 @@
                         <div class="row g-2">
                             <div class="col-6">
                                 <label class="form-label-dark mb-1">Monto en Efectivo (Bs.)</label>
-                                <input type="number" step="0.50" min="0" name="monto_efectivo" id="posMixtoEfectivo"
+                                <input type="number" step="0.01" min="0" name="monto_efectivo" id="posMixtoEfectivo"
                                        class="form-control form-control-dark" oninput="recalcularMixtoPos()">
                             </div>
                             <div class="col-6">
                                 <label class="form-label-dark mb-1">Monto por QR / Tarjeta (Bs.)</label>
-                                <input type="number" step="0.50" min="0" name="monto_digital" id="posMixtoDigital"
+                                <input type="number" step="0.01" min="0" name="monto_digital" id="posMixtoDigital"
                                        class="form-control form-control-dark" oninput="validarCobroPos()">
                             </div>
                         </div>
@@ -334,7 +334,7 @@
                     </div>
                     <div class="col-5">
                         <label class="form-label-dark">Descuento (%)</label>
-                        <input type="number" step="0.5" min="0" max="50" id="posCliDesc" class="form-control form-control-dark" value="0">
+                        <input type="number" step="0.01" min="0" max="50" id="posCliDesc" class="form-control form-control-dark" value="0">
                     </div>
                 </div>
             </div>
@@ -524,7 +524,7 @@
                            onchange="cambiarLineaPos(${idx}, 'cantidad', this.value)">
                 </td>
                 <td>
-                    <input type="number" step="0.50" min="0.01" name="items[${idx}][precio]" value="${it.precio.toFixed(2)}"
+                    <input type="number" step="0.01" min="0.01" name="items[${idx}][precio]" value="${it.precio.toFixed(2)}"
                            class="form-control form-control-sm form-control-dark text-end"
                            onchange="cambiarLineaPos(${idx}, 'precio', this.value)">
                 </td>

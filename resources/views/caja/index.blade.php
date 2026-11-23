@@ -69,7 +69,7 @@
                         </label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-4 flex items-center font-bold text-slate-400">Bs.</span>
-                            <input type="number" step="0.50" min="0" name="monto_inicial" id="monto_inicial"
+                            <input type="number" step="0.01" min="0" name="monto_inicial" id="monto_inicial"
                                    value="{{ old('monto_inicial', '500.00') }}" required
                                    class="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-lg font-extrabold text-slate-900">
                         </div>
@@ -201,7 +201,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1">Monto en Efectivo (Bs.) *</label>
-                                <input type="number" step="0.50" min="0.50" name="monto" required placeholder="0.00"
+                                <input type="number" step="0.01" min="0.01" name="monto" required placeholder="0.00"
                                        class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-amber-500">
                             </div>
                         </div>

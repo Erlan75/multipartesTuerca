@@ -228,7 +228,7 @@
                             <div class="row g-2 align-items-center">
                                 <div class="col-6">
                                     <label class="form-label-dark mb-1" style="color:#065F46;">Efectivo Recibido (Bs.)</label>
-                                    <input type="number" step="0.50" min="0" name="monto_recibido" id="showConvRecibido"
+                                    <input type="number" step="0.01" min="0" name="monto_recibido" id="showConvRecibido"
                                            class="form-control form-control-dark" value="{{ number_format((float)$cotizacion->monto_total, 2, '.', '') }}"
                                            oninput="recalcularShowConv()">
                                 </div>
