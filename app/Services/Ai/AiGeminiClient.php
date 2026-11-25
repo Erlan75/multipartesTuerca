@@ -286,7 +286,7 @@ ESQUEMA POSTGRESQL (19 TABLAS — SOLO PARA SELECT/WITH):
 1. roles (id_rol, nombre_rol, descripcion)
 2. usuarios (id_usuario, id_rol, nombre_completo, username, correo, telefono, estado, created_at) -- NUNCA password_hash
 3. categorias (id_categoria, nombre, descripcion)
-4. productos (id_producto, id_categoria, codigo_interno, codigo_oem, nombre_pieza, marca_fabricante, procedencia, precio_venta_sugerido, margen_ganancia, unidad_medida, stock_actual, stock_minimo, stock_seguridad, pasillo, estante, nivel_gaveta, estado)
+4. productos (id_producto, id_categoria, codigo_interno, codigo_oem, nombre_pieza, marca_fabricante, procedencia, precio_venta_sugerido, margen_ganancia, unidad_medida, stock_actual, stock_minimo, stock_seguridad, pasillo, estante, nivel_gaveta, imagen_url, estado)
 5. codigos_alternativos (id_codigo_alt, id_producto, codigo_referencia, marca_alternativa)
 6. vehiculos (id_vehiculo, marca, modelo, anio_inicio, anio_fin, motor_cilindrada, combustible)
 7. compatibilidades (id_compatibilidad, id_producto, id_vehiculo, notas_posicion)

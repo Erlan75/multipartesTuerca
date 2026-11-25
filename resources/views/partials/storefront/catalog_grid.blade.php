@@ -206,6 +206,8 @@
                             'codigo_oem'   => (string) ($p->codigo_oem ?? ''),
                             'precio'       => (float) $p->precio_venta_sugerido,
                             'stock'        => $stock,
+                            'imagen'       => $p->foto_url,
+                            'fallback'     => $p->foto_fallback_url,
                         ];
                     @endphp
                     <div class="col-12 col-md-6 col-lg-4 col-xl-3">
@@ -221,6 +223,14 @@
                                         <i class="bi bi-upc-scan"></i>
                                         <span>{{ $p->codigo_oem }}</span>
                                     </span>
+                                </div>
+
+                                <!-- Fotografía de estudio del repuesto (4:3 con fallback automático) -->
+                                <div class="cz-product-media">
+                                    <img src="{{ $p->foto_url }}"
+                                         alt="{{ $p->nombre_pieza }}"
+                                         loading="lazy"
+                                         onerror="this.onerror=null;this.src='{{ $p->foto_fallback_url }}';">
                                 </div>
 
                                 <!-- Categoría y Fabricante -->

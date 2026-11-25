@@ -105,6 +105,7 @@ CREATE TABLE productos (
     pasillo VARCHAR(20),
     estante VARCHAR(20),
     nivel_gaveta VARCHAR(20),
+    imagen_url VARCHAR(255),
     estado BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_producto_categoria FOREIGN KEY (id_categoria) 
         REFERENCES categorias(id_categoria) ON DELETE RESTRICT,

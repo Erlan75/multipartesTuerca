@@ -144,6 +144,7 @@ class HomeController extends Controller
                 'marca_fabricante',
                 'precio_venta_sugerido',
                 'stock_actual',
+                'imagen_url',
             ])
             ->map(fn($p) => [
                 'id_producto' => (int) $p->id_producto,
@@ -154,6 +155,8 @@ class HomeController extends Controller
                 'categoria'   => (string) ($p->categoria?->nombre ?? 'Repuesto'),
                 'precio'      => (float) $p->precio_venta_sugerido,
                 'stock'       => (int) $p->stock_actual,
+                'imagen'      => $p->foto_url,
+                'fallback'    => $p->foto_fallback_url,
                 'vehiculos'   => $p->vehiculos->map(fn($v) => trim("{$v->marca} {$v->modelo} {$v->anio_inicio}-{$v->anio_fin}"))->implode(' · '),
             ])
             ->values();

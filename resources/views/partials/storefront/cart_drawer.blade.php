@@ -171,13 +171,21 @@
                 <div class="p-3 mb-4 rounded-3" style="background: var(--cz-canvas); border: 1px solid var(--cz-border);">
                     <div class="row g-3 align-items-center">
                         <div class="col-12 col-md-8">
-                            <div class="fw-bold text-uppercase mb-1" id="modalCategoria" style="font-size: 0.72rem; letter-spacing: 0.06em; color: var(--cz-emerald-deep);"></div>
-                            <h4 class="fw-bold mb-2" id="modalNombrePieza" style="font-size: 1.2rem; color: var(--cz-ink);"></h4>
-                            <div class="d-flex gap-2 flex-wrap">
-                                <span class="cz-oem-pill" id="modalCodigoOem"></span>
-                                <span class="cz-oem-pill" id="modalCodigoInterno"></span>
-                                <span class="badge bg-white text-dark border" id="modalMarcaFabricante"></span>
-                                <span class="badge bg-white text-secondary border" id="modalProcedencia"></span>
+                            <div class="d-flex align-items-center gap-3">
+                                <img id="modalProductoFoto"
+                                     src="{{ asset('images/repuestos/motor_transmision.jpg') }}"
+                                     alt="Repuesto seleccionado"
+                                     class="cz-modal-thumb">
+                                <div class="min-w-0">
+                                    <div class="fw-bold text-uppercase mb-1" id="modalCategoria" style="font-size: 0.72rem; letter-spacing: 0.06em; color: var(--cz-emerald-deep);"></div>
+                                    <h4 class="fw-bold mb-2" id="modalNombrePieza" style="font-size: 1.15rem; color: var(--cz-ink);"></h4>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="cz-oem-pill" id="modalCodigoOem"></span>
+                                        <span class="cz-oem-pill" id="modalCodigoInterno"></span>
+                                        <span class="badge bg-white text-dark border" id="modalMarcaFabricante"></span>
+                                        <span class="badge bg-white text-secondary border" id="modalProcedencia"></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-12 col-md-4 text-md-end">
@@ -233,6 +241,7 @@
 <script>
     const CZ_ROUTES = {{ \Illuminate\Support\Js::from($czRoutesCart) }};
     const CZ_CATALOGO_AUTOCOMPLETE = {{ \Illuminate\Support\Js::from($autocompleteCatalog ?? []) }};
+    const CZ_FALLBACK_IMG = {{ \Illuminate\Support\Js::from(asset('images/repuestos/motor_transmision.jpg')) }};
     const STORAGE_KEY_CART = 'multipartes_carrito_web';
     let czModoActual = 'compra';
 
@@ -295,15 +304,23 @@
                 const url = `${CZ_ROUTES.home}?buscar=${encodeURIComponent(it.oem || it.nombre)}#catalogo`;
                 const stockColor = it.stock > 0 ? '#047857' : '#64748B';
                 const stockTxt = it.stock > 0 ? `Stock: ${it.stock}` : 'Agotado';
+                const imgSrc = escapar(it.imagen || it.fallback || CZ_FALLBACK_IMG);
+                const imgFallback = escapar(it.fallback || CZ_FALLBACK_IMG);
                 return `
                     <a href="${url}" class="cz-ac-item" role="option">
-                        <div class="min-w-0">
-                            <div class="cz-ac-title text-truncate">${escapar(it.nombre)}</div>
-                            <div class="cz-ac-meta">
-                                <span class="font-mono-cz fw-semibold text-dark">OEM ${escapar(it.oem)}</span>
-                                <span>&middot;</span>
-                                <span>${escapar(it.marca)}</span>
-                                ${it.vehiculos ? `<span>&middot;</span><span class="text-truncate" style="max-width:260px;">${escapar(it.vehiculos)}</span>` : ''}
+                        <div class="d-flex align-items-center gap-3 min-w-0">
+                            <img src="${imgSrc}"
+                                 alt="${escapar(it.nombre)}"
+                                 class="cz-ac-thumb"
+                                 onerror="this.onerror=null;this.src='${imgFallback}';">
+                            <div class="min-w-0">
+                                <div class="cz-ac-title text-truncate">${escapar(it.nombre)}</div>
+                                <div class="cz-ac-meta">
+                                    <span class="font-mono-cz fw-semibold text-dark">OEM ${escapar(it.oem)}</span>
+                                    <span>&middot;</span>
+                                    <span>${escapar(it.marca)}</span>
+                                    ${it.vehiculos ? `<span>&middot;</span><span class="text-truncate" style="max-width:220px;">${escapar(it.vehiculos)}</span>` : ''}
+                                </div>
                             </div>
                         </div>
                         <div class="text-end flex-shrink-0">
@@ -380,6 +397,13 @@
 
     // ── 6. Modal de Compatibilidad Técnica (intacto) ──
     function verDetalleCompatibilidad(producto) {
+        const modalFoto = document.getElementById('modalProductoFoto');
+        if (modalFoto) {
+            const fallbackUrl = producto.foto_fallback_url || CZ_FALLBACK_IMG;
+            modalFoto.onerror = function () { this.onerror = null; this.src = fallbackUrl; };
+            modalFoto.src = producto.foto_url || fallbackUrl;
+            modalFoto.alt = producto.nombre_pieza || 'Repuesto';
+        }
         document.getElementById('modalNombrePieza').textContent = producto.nombre_pieza;
         document.getElementById('modalCategoria').textContent = producto.categoria ? producto.categoria.nombre : 'REPUESTO';
         document.getElementById('modalCodigoOem').innerHTML = '<i class="bi bi-upc-scan"></i> OEM: ' + producto.codigo_oem;
@@ -457,6 +481,8 @@
         const ex = items.find(x => x.id_producto === prod.id_producto);
         if (ex) {
             if (ex.cantidad < prod.stock) ex.cantidad += 1;
+            if (!ex.imagen && prod.imagen) ex.imagen = prod.imagen;
+            if (!ex.fallback && prod.fallback) ex.fallback = prod.fallback;
         } else {
             items.push({
                 id_producto: prod.id_producto,
@@ -464,6 +490,8 @@
                 codigo_oem: prod.codigo_oem,
                 precio: parseFloat(prod.precio),
                 stock: parseInt(prod.stock, 10),
+                imagen: prod.imagen || prod.fallback || CZ_FALLBACK_IMG,
+                fallback: prod.fallback || CZ_FALLBACK_IMG,
                 cantidad: 1
             });
         }
@@ -565,13 +593,21 @@
 
             const card = document.createElement('div');
             card.className = 'cz-drawer-item';
+            const imgUrl = it.imagen || it.fallback || CZ_FALLBACK_IMG;
+            const imgFallback = it.fallback || CZ_FALLBACK_IMG;
             card.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size: 0.88rem; line-height: 1.3;">${it.nombre_pieza}</div>
-                        <div class="font-mono-cz text-muted" style="font-size: 0.72rem;">OEM ${it.codigo_oem} &middot; Bs. ${it.precio.toFixed(2)}</div>
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <img src="${imgUrl}"
+                             alt="${it.nombre_pieza}"
+                             class="cz-drawer-thumb"
+                             onerror="this.onerror=null;this.src='${imgFallback}';">
+                        <div class="min-w-0">
+                            <div class="fw-bold text-dark" style="font-size: 0.88rem; line-height: 1.3;">${it.nombre_pieza}</div>
+                            <div class="font-mono-cz text-muted" style="font-size: 0.72rem;">OEM ${it.codigo_oem} &middot; Bs. ${it.precio.toFixed(2)}</div>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-sm p-1 text-danger border-0" onclick="cambiarCantCarritoWeb(${idx}, -999)" aria-label="Quitar repuesto">
+                    <button type="button" class="btn btn-sm p-1 text-danger border-0 flex-shrink-0" onclick="cambiarCantCarritoWeb(${idx}, -999)" aria-label="Quitar repuesto">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
