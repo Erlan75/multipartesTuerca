@@ -1,4 +1,8 @@
 -- =============================================================================
+-- ARCHIVO MAESTRO 4/4: POBLACIÓN SEMILLA Y DATOS INICIALES
+-- PROYECTO: MULTIPARTES EL TUERCA — ARQUITECTURA SMART-DB (PostgreSQL 16+)
+-- ORDEN DE DESPLIEGUE: 1. Script.sql -> 2. PA.sql -> 3. Triggers.sql -> 4. Poblacion.sql
+-- =============================================================================
 -- PARTE 1: RESET Y CATÁLOGOS BASE
 -- =============================================================================
 

@@ -8,7 +8,6 @@ use App\Models\NotaCompra;
 use App\Models\DetalleCompra;
 use App\Models\Proveedor;
 use App\Models\Producto;
-use App\Services\ExportacionService;
 use App\Services\ExportadorUniversalService;
 use Carbon\Carbon;
 
@@ -172,7 +171,7 @@ class CompraController extends Controller
     /**
      * Exporta el comprobante de recepción de compra en PDF o Excel (.xlsx).
      */
-    public function exportar($id, string $formato, ExportacionService $exportacion)
+    public function exportar($id, string $formato, ExportadorUniversalService $exportacion)
     {
         $compra = NotaCompra::with(['proveedor', 'usuarioReceptor.rol', 'detalles.producto.categoria'])
             ->findOrFail($id);

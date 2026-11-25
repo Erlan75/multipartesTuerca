@@ -6,7 +6,7 @@ use App\Models\Categoria;
 use App\Models\Proveedor;
 use App\Models\SesionCaja;
 use App\Models\Usuario;
-use App\Services\ExportacionService;
+use App\Services\ExportadorUniversalService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 class ReporteController extends Controller
 {
     public function __construct(
-        private readonly ExportacionService $exportService
+        private readonly ExportadorUniversalService $exportService
     ) {}
 
     /**

@@ -10,7 +10,6 @@ use App\Models\Producto;
 use App\Models\SesionCaja;
 use App\Models\NotaVenta;
 use App\Helpers\Bitacora;
-use App\Services\ExportacionService;
 use App\Services\ExportadorUniversalService;
 use Carbon\Carbon;
 
@@ -230,7 +229,7 @@ class CotizacionController extends Controller
     /**
      * Exporta la proforma / cotización comercial en PDF o Excel (.xlsx).
      */
-    public function exportar($id, string $formato, ExportacionService $exportacion)
+    public function exportar($id, string $formato, ExportadorUniversalService $exportacion)
     {
         $cotizacion = Cotizacion::with(['cliente', 'usuario.rol', 'detalles.producto.categoria'])
             ->findOrFail($id);

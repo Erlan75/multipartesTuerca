@@ -1,0 +1,811 @@
+        :root {
+            --mac-bg: #F5F7FB;
+            --mac-surface: #FFFFFF;
+            --mac-border: #E2E8F0;
+            --mac-border-subtle: rgba(226, 232, 240, 0.8);
+            --mac-primary: #007AFF;
+            --mac-primary-hover: #0055D4;
+            --mac-primary-soft: rgba(0, 122, 255, 0.08);
+            --mac-success: #34C759;
+            --mac-success-soft: rgba(52, 199, 89, 0.12);
+            --mac-warning: #FF9500;
+            --mac-warning-soft: rgba(255, 149, 0, 0.12);
+            --mac-danger: #FF3B30;
+            --mac-title: #0F172A;
+            --mac-text: #334155;
+            --mac-muted: #64748B;
+            --mac-subtle: #94A3B8;
+            --mac-radius: 16px;
+            --mac-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+            --mac-shadow-lg: 0 16px 32px -4px rgba(0, 122, 255, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--mac-bg);
+            color: var(--mac-text);
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ── Top Utility Bar ── */
+        .top-utility-bar {
+            background: #0F172A;
+            color: #94A3B8;
+            font-size: 0.78rem;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .top-utility-bar a {
+            color: #CBD5E1;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .top-utility-bar a:hover {
+            color: #FFFFFF;
+        }
+
+        /* ── Public Navbar ── */
+        .public-navbar {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--mac-border);
+            padding: 14px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+        }
+        .brand-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+        .brand-logo-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #007AFF 0%, #0055D4 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-size: 1.35rem;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+            flex-shrink: 0;
+        }
+        .brand-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--mac-title);
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+        .brand-subtitle {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--mac-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* ── Nav Buttons ── */
+        .btn-mac-primary {
+            background: linear-gradient(135deg, #007AFF 0%, #0055D4 100%);
+            color: #FFFFFF !important;
+            border: none;
+            border-radius: 10px;
+            padding: 8px 18px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+            text-decoration: none;
+        }
+        .btn-mac-primary:hover {
+            background: linear-gradient(135deg, #0066D6 0%, #0047B3 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(0, 122, 255, 0.35);
+        }
+        .btn-mac-outline {
+            background: #FFFFFF;
+            color: var(--mac-title) !important;
+            border: 1px solid var(--mac-border);
+            border-radius: 10px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-mac-outline:hover {
+            border-color: var(--mac-primary);
+            color: var(--mac-primary) !important;
+            background: var(--mac-primary-soft);
+        }
+
+        /* ── Hero Section ── */
+        .hero-section {
+            background: radial-gradient(120% 100% at 50% 0%, #FFFFFF 0%, #F5F7FB 100%);
+            border-bottom: 1px solid var(--mac-border);
+            padding: 48px 0 54px;
+            position: relative;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 999px;
+            padding: 5px 14px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--mac-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            margin-bottom: 18px;
+        }
+        .hero-badge .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--mac-success);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.2);
+        }
+        .hero-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--mac-title);
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 1.85rem;
+            }
+        }
+        .hero-subtitle {
+            font-size: 1.05rem;
+            color: var(--mac-muted);
+            max-width: 680px;
+            margin: 0 auto 30px;
+            line-height: 1.5;
+        }
+
+        /* ── Hero Search Box ── */
+        .search-card {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 20px;
+            padding: 10px;
+            box-shadow: var(--mac-shadow-lg);
+            max-width: 860px;
+            margin: 0 auto;
+        }
+        .search-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        @media (min-width: 768px) {
+            .search-input-group {
+                flex-wrap: nowrap;
+            }
+        }
+        .search-input-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-width: 240px;
+        }
+        .search-input-wrapper i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--mac-subtle);
+            font-size: 1.1rem;
+        }
+        .search-input-wrapper input {
+            width: 100%;
+            border: 1px solid transparent;
+            background: var(--mac-bg);
+            border-radius: 12px;
+            padding: 12px 14px 12px 46px;
+            font-size: 0.95rem;
+            color: var(--mac-title);
+            transition: all 0.2s;
+            outline: none;
+        }
+        .search-input-wrapper input:focus {
+            background: #FFFFFF;
+            border-color: var(--mac-primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+        .search-select {
+            border: 1px solid transparent;
+            background: var(--mac-bg);
+            border-radius: 12px;
+            padding: 12px 34px 12px 14px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--mac-text);
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .search-select:focus {
+            background: #FFFFFF;
+            border-color: var(--mac-primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+        .btn-search-hero {
+            background: linear-gradient(135deg, #007AFF 0%, #0055D4 100%);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+            cursor: pointer;
+        }
+        .btn-search-hero:hover {
+            background: linear-gradient(135deg, #0066D6 0%, #0047B3 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4);
+        }
+
+        /* Quick Search Chips */
+        .quick-searches {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+            font-size: 0.78rem;
+            color: var(--mac-muted);
+        }
+        .quick-chip {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 999px;
+            padding: 3px 12px;
+            color: var(--mac-text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .quick-chip:hover {
+            border-color: var(--mac-primary);
+            color: var(--mac-primary);
+            background: var(--mac-primary-soft);
+        }
+
+        /* ── Value Props Strip ── */
+        .trust-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            max-width: 960px;
+            margin: 36px auto 0;
+        }
+        .trust-item {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border-subtle);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+        .trust-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--mac-primary-soft);
+            color: var(--mac-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .trust-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--mac-title);
+            margin: 0;
+            line-height: 1.2;
+        }
+        .trust-desc {
+            font-size: 0.72rem;
+            color: var(--mac-muted);
+            margin: 0;
+        }
+
+        /* ── Section Titles ── */
+        .section-header {
+            margin-bottom: 26px;
+        }
+        .section-tag {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--mac-primary);
+            margin-bottom: 4px;
+        }
+        .section-title {
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: var(--mac-title);
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+        .section-subtitle {
+            font-size: 0.88rem;
+            color: var(--mac-muted);
+            margin: 0;
+        }
+
+        /* ── Brand Grid (Sección 1) ── */
+        .brand-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 14px;
+        }
+        @media (min-width: 992px) {
+            .brand-grid {
+                grid-template-columns: repeat(9, 1fr);
+            }
+        }
+        .brand-card {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 16px;
+            padding: 18px 10px 14px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--mac-title);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            position: relative;
+            cursor: pointer;
+            height: 100%;
+        }
+        .brand-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--mac-primary);
+            box-shadow: 0 8px 20px rgba(0, 122, 255, 0.12);
+            color: var(--mac-primary);
+        }
+        .brand-card.active {
+            border: 2px solid var(--mac-primary);
+            background: rgba(0, 122, 255, 0.04);
+            box-shadow: 0 6px 18px rgba(0, 122, 255, 0.15);
+        }
+        .brand-card.active::after {
+            content: "✓ Activo";
+            position: absolute;
+            top: -9px;
+            background: var(--mac-primary);
+            color: #FFFFFF;
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 1px 8px;
+            border-radius: 999px;
+            letter-spacing: 0.04em;
+        }
+        .brand-logo-wrap {
+            width: 46px;
+            height: 46px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .brand-logo-wrap svg,
+        .brand-logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .brand-name {
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+            line-height: 1.2;
+        }
+        .brand-count {
+            font-size: 0.68rem;
+            color: var(--mac-muted);
+            font-weight: 500;
+        }
+
+        /* ── Model Selector (Filtered Brand) ── */
+        .model-filter-bar {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-top: 14px;
+            box-shadow: var(--mac-shadow);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .model-chip {
+            background: var(--mac-bg);
+            border: 1px solid var(--mac-border);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--mac-text);
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .model-chip:hover {
+            border-color: var(--mac-primary);
+            color: var(--mac-primary);
+            background: var(--mac-primary-soft);
+        }
+        .model-chip.active {
+            background: var(--mac-primary);
+            border-color: var(--mac-primary);
+            color: #FFFFFF;
+        }
+
+        /* ── Category Cards (Sección 2) ── */
+        .category-card {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: var(--mac-title);
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            height: 100%;
+        }
+        .category-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--mac-primary);
+            box-shadow: 0 8px 24px rgba(0, 122, 255, 0.09);
+            color: var(--mac-primary);
+        }
+        .category-card.active {
+            border: 2px solid var(--mac-primary);
+            background: rgba(0, 122, 255, 0.04);
+        }
+        .category-icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+        }
+        .category-card-body h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin: 0 0 4px;
+            line-height: 1.2;
+        }
+        .category-card-body p {
+            font-size: 0.75rem;
+            color: var(--mac-muted);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        /* ── Product Cards (Sección 3) ── */
+        .product-card {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+            position: relative;
+        }
+        .product-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 122, 255, 0.4);
+            box-shadow: 0 12px 28px rgba(0, 122, 255, 0.1);
+        }
+        .product-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .product-cat-badge {
+            background: var(--mac-bg);
+            border: 1px solid var(--mac-border);
+            color: var(--mac-muted);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .product-maker-badge {
+            background: var(--mac-primary-soft);
+            color: var(--mac-primary);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 6px;
+        }
+        .product-name {
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: var(--mac-title);
+            line-height: 1.35;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 2.7em;
+        }
+        .product-codes-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .code-pill {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .code-pill-oem {
+            background: rgba(0, 122, 255, 0.07);
+            border-color: rgba(0, 122, 255, 0.25);
+            color: #0066D6;
+        }
+        .product-stock-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+        .status-stock-ok {
+            color: #15803D;
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: var(--mac-success);
+        }
+        .product-compatibility-snippet {
+            background: var(--mac-bg);
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 16px;
+            font-size: 0.74rem;
+            color: var(--mac-text);
+        }
+        .product-compatibility-snippet .comp-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--mac-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .product-price-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            border-top: 1px solid var(--mac-border-subtle);
+            padding-top: 14px;
+            margin-top: auto;
+        }
+        .price-label {
+            font-size: 0.68rem;
+            color: var(--mac-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .price-val {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--mac-title);
+            letter-spacing: -0.02em;
+        }
+
+        .btn-check-compat {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-primary);
+            color: var(--mac-primary);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 12px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .btn-check-compat:hover {
+            background: var(--mac-primary);
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+        }
+
+        /* ── Active Filter Bar ── */
+        .active-filters-bar {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .filter-tag {
+            background: var(--mac-primary-soft);
+            border: 1px solid rgba(0, 122, 255, 0.2);
+            color: var(--mac-primary);
+            border-radius: 999px;
+            padding: 3px 12px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-tag a {
+            color: var(--mac-primary);
+            text-decoration: none;
+            opacity: 0.7;
+        }
+        .filter-tag a:hover {
+            opacity: 1;
+        }
+
+        /* ── Modal Styling (macOS Light) ── */
+        .modal-content-mac {
+            background: #FFFFFF;
+            border: 1px solid var(--mac-border);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+        .modal-header-mac {
+            border-bottom: 1px solid var(--mac-border);
+            padding: 18px 24px;
+            background: #F8FAFC;
+        }
+        .modal-body-mac {
+            padding: 24px;
+        }
+        .modal-footer-mac {
+            border-top: 1px solid var(--mac-border);
+            padding: 16px 24px;
+            background: #F8FAFC;
+        }
+
+        /* ── Footer ── */
+        .public-footer {
+            background: #0F172A;
+            color: #94A3B8;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 60px 0 24px;
+            margin-top: 70px;
+        }
+        .footer-heading {
+            color: #FFFFFF;
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-bottom: 18px;
+            letter-spacing: -0.01em;
+        }
+        .footer-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+        .footer-links a {
+            color: #94A3B8;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.15s;
+        }
+        .footer-links a:hover {
+            color: #FFFFFF;
+        }
+
+        /* ── Pagination (macOS Light Style) ── */
+        .pagination {
+            gap: 5px;
+            justify-content: center;
+            margin-top: 28px;
+        }
+        .page-link {
+            color: #1E293B;
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px !important;
+            padding: 7px 14px;
+            font-weight: 500;
+            font-size: 0.84rem;
+            transition: all 0.15s;
+        }
+        .page-link:hover {
+            background-color: #F1F5F9;
+            border-color: #CBD5E1;
+            color: #007AFF;
+        }
+        .page-item.active .page-link {
+            background-color: #007AFF;
+            border-color: #007AFF;
+            color: #FFFFFF;
+            box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
+        }
+        .page-item.disabled .page-link {
+            background-color: #F8FAFC;
+            color: #94A3B8;
+            border-color: #E2E8F0;
+        }

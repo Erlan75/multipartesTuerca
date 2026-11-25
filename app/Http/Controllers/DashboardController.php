@@ -7,7 +7,7 @@ use App\Models\Categoria;
 use App\Models\Vehiculo;
 use App\Models\Usuario;
 use App\Models\Rol;
-use App\Services\ExportacionService;
+use App\Services\ExportadorUniversalService;
 
 class DashboardController extends Controller
 {
@@ -48,7 +48,7 @@ class DashboardController extends Controller
     /**
      * Exporta el resumen ejecutivo del catálogo activo en PDF o Excel (.xlsx).
      */
-    public function exportar(string $formato, ExportacionService $exportacion)
+    public function exportar(string $formato, ExportadorUniversalService $exportacion)
     {
         if (auth()->check() && (auth()->user()->id_rol === 5 || auth()->user()->rol?->nombre_rol === 'Cliente')) {
             abort(403, 'Área exclusiva para personal administrativo.');

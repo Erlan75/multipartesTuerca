@@ -10,7 +10,6 @@ use App\Models\Producto;
 use App\Models\SesionCaja;
 use App\Models\BitacoraAuditoria;
 use App\Models\Usuario;
-use App\Services\ExportacionService;
 use App\Services\ExportadorUniversalService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -505,7 +504,7 @@ class VentaController extends Controller
     /**
      * Exporta la Nota de Venta en PDF o Excel (.xlsx).
      */
-    public function exportar($id, string $formato, ExportacionService $exportacion)
+    public function exportar($id, string $formato, ExportadorUniversalService $exportacion)
     {
         $venta = NotaVenta::with(['cliente', 'vendedor.rol', 'sesionCaja.cajero', 'detalles.producto.categoria'])
             ->findOrFail($id);

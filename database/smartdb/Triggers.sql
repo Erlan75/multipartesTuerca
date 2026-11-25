@@ -1,7 +1,8 @@
 -- =============================================================================
--- TRIGGERS Y FUNCIONES DE INTEGRIDAD TRANSACCIONAL
+-- ARCHIVO MAESTRO 3/4: TRIGGERS Y FUNCIONES DE INTEGRIDAD TRANSACCIONAL
 -- PROYECTO: MULTIPARTES EL TUERCA
--- ARQUITECTURA: Smart-DB (PostgreSQL)
+-- ARQUITECTURA: Smart-DB (PostgreSQL 16+)
+-- ORDEN DE DESPLIEGUE: 1. Script.sql -> 2. PA.sql -> 3. Triggers.sql -> 4. Poblacion.sql
 -- =============================================================================
 
 -- =============================================================================

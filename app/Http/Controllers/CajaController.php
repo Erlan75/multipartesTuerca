@@ -6,7 +6,6 @@ use App\Models\BitacoraAuditoria;
 use App\Models\MovimientoCaja;
 use App\Models\NotaVenta;
 use App\Models\SesionCaja;
-use App\Services\ExportacionService;
 use App\Services\ExportadorUniversalService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -119,7 +118,7 @@ class CajaController extends Controller
     /**
      * Exporta el Acta de Arqueo y Movimientos de una sesión de caja en PDF o Excel (.xlsx).
      */
-    public function exportar($id, string $formato, ExportacionService $exportacion)
+    public function exportar($id, string $formato, ExportadorUniversalService $exportacion)
     {
         $sesion = SesionCaja::with([
             'cajero',

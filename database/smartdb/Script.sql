@@ -1,20 +1,25 @@
 -- =============================================================================
+-- ARCHIVO MAESTRO 1/4: ESQUEMA DDL CANÓNICO (19 TABLAS, RESTRICCIONES E ÍNDICES)
 -- BASE DE DATOS: SISTEMA MULTIPARTES EL TUERCA
--- MOTOR: PostgreSQL
+-- MOTOR: PostgreSQL 16+ (Arquitectura Smart-DB)
+-- ORDEN DE DESPLIEGUE: 1. Script.sql -> 2. PA.sql -> 3. Triggers.sql -> 4. Poblacion.sql
 -- =============================================================================
--- HISTORIAL DE CAMBIOS ESTRUCTURALES Y CONSOLIDACIÓN TOTAL DDL (CICLOS 1, 2 Y 3)
+-- CONSOLIDACIÓN TOTAL DDL (CICLOS 1, 2, 3 Y 4)
 -- -----------------------------------------------------------------------------
 -- [Ciclo 1 - Seguridad]
 --   * bitacoras_auditorias.id_usuario admite NULL (login fallido de usuarios inexistentes).
 --   * chk_bitacora_accion: LOGIN_FALLIDO, CUENTA_BLOQUEADA, LOGIN_BLOQUEADO,
 --     PASSWORD_RESET_SOLICITUD, PASSWORD_RESET_EXITOSO, PASSWORD_CAMBIO_PERFIL,
 --     PASSWORD_MODIFICADO.
--- [Ciclo 2 - Consolidación Nativa]
+-- [Ciclo 2 - Compras, Proveedores y Ajustes]
 --   * proveedores.estado BOOLEAN NOT NULL DEFAULT TRUE (CU19: baja lógica nativa).
 --   * ajustes_inventario.chk_ajuste_tipo nativo con 'Uso Interno' (CU17/CU18).
 --   * usuarios.chk_usuario_password_hash CHECK (length(password_hash) >= 60).
 -- [Ciclo 3 - Ventas, Cotizaciones, POS y Tesorería/Caja]
---   * chk_bitacora_accion ampliado con acciones operativas de Caja, Cotizaciones y POS.
+--   * chk_bitacora_accion ampliado con APERTURA_CAJA, CIERRE_CAJA,
+--     CONVERSION_COTIZACION y DESCUENTO_AUTORIZADO.
+-- [Ciclo 4 - Reportes Analíticos y Asistente IA]
+--   * Esquema consolidado para fn_reporte_* y operaciones asistidas CU35-CU39.
 -- =============================================================================
 
 -- Limpieza preventiva si se ejecuta en pruebas
@@ -50,10 +55,6 @@ CREATE TABLE roles (
 );
 -- Evita roles duplicados sin importar mayúsculas/minúsculas
 CREATE UNIQUE INDEX uq_rol_nombre_lower ON roles (lower(trim(nombre_rol)));
-INSERT INTO roles (id_rol, nombre_rol, descripcion) 
-VALUES (5, 'Cliente', 'Cliente web registrado para cotizaciones y compras') 
-ON CONFLICT (id_rol) DO NOTHING;
-SELECT setval('roles_id_rol_seq', (SELECT COALESCE(MAX(id_rol), 1) FROM roles), true);
 
 CREATE TABLE usuarios (
     id_usuario SERIAL PRIMARY KEY,
