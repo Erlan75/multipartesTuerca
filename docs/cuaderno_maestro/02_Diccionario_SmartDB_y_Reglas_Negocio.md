@@ -29,7 +29,7 @@ La carpeta `database/smartdb/` se encuentra consolidada en **4 archivos maestros
 4. **`productos`**
    - **PK:** `id_producto` (`SERIAL`)
    - **FK:** `id_categoria -> categorias(id_categoria)` (`ON DELETE RESTRICT`)
-   - **Columnas:** `codigo_interno`, `codigo_oem`, `nombre_pieza`, `marca_fabricante`, `procedencia`, `precio_venta_sugerido`, `margen_ganancia`, `unidad_medida`, `stock_actual`, `stock_minimo`, `stock_seguridad`, `pasillo`, `estante`, `nivel_gaveta`, `estado`
+   - **Columnas:** `codigo_interno`, `codigo_oem`, `nombre_pieza`, `marca_fabricante`, `procedencia`, `precio_venta_sugerido`, `margen_ganancia`, `unidad_medida`, `stock_actual`, `stock_minimo`, `stock_seguridad`, `pasillo`, `estante`, `nivel_gaveta`, `imagen_url VARCHAR(255)`, `estado`
    - **Reglas / Índices:** `chk_prod_cod_interno >= 2`, `chk_prod_cod_oem >= 2`, `chk_prod_nombre >= 3`, `chk_prod_precio_sug > 0`, `chk_prod_margen >= 0`, `chk_prod_stocks` (`stock_actual >= 0`, `stock_minimo >= 0`, `stock_seguridad >= stock_minimo`), `uq_producto_codinterno_lower`, `idx_producto_oem_lower`.
 5. **`codigos_alternativos`**
    - **PK:** `id_codigo_alt` (`SERIAL`)
@@ -159,3 +159,13 @@ La carpeta `database/smartdb/` se encuentra consolidada en **4 archivos maestros
 | 14 | `trg_auditar_cambio_password` (`fn_trg_auditar_cambio_password`) | `usuarios` · `AFTER UPDATE OF password_hash` | Audita con acción `PASSWORD_MODIFICADO` cualquier cambio o reseteo de credencial. |
 | 15.1 | `trg_validar_descuento_cabecera` (`fn_trg_validar_descuento_cabecera`) | `notas_ventas` · `BEFORE INSERT OR UPDATE` | Impide descuentos negativos o superiores al **50%** del importe bruto total. |
 | 15.2 | `trg_validar_margen_costo_venta` (`fn_trg_validar_margen_costo_venta`) | `detalles_ventas` · `BEFORE INSERT` | Prorratea el descuento global y prohíbe vender un repuesto a un precio neto efectivo menor a su último costo de compra (o costo base estimado según margen). |
+
+---
+
+## 4. Conteos de Referencia de Población Semilla (`database/smartdb/Poblacion.sql`)
+
+La carga semilla maestra reinicia las secuencias e inserta el catálogo comercial ampliado con los siguientes volúmenes verificados:
+- **Seguridad:** `5` roles y `5` usuarios base.
+- **Catálogo y Compatibilidad:** `8` categorías, `68` productos con `imagen_url` local (`7` con stock bajo `<= stock_minimo` y `3` agotados con stock `0`), `36` códigos alternativos, `27` vehículos del parque automotor local y `162` registros de compatibilidad técnica.
+- **Actores Comerciales:** `6` proveedores mayoristas y `14` clientes (`id_cliente = 1` reservado para `Cliente Ocasional Mostrador`).
+- **Operación Transaccional:** `2` sesiones de caja (`1` cerrada/cuadrada y `1` abierta), `6` notas de compras (`22` detalles), `6` cotizaciones, `10` notas de venta (`18` detalles), `4` ajustes de inventario y `3` registros iniciales en bitácora.
