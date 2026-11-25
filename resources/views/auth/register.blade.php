@@ -4,278 +4,452 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crear Cuenta de Cliente — Multipartes El Tuerca</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
+        :root {
+            --cz-dark: #0F172A;
+            --cz-dark-elev: #1E293B;
+            --cz-emerald: #10B981;
+            --cz-emerald-dark: #059669;
+            --cz-emerald-deep: #047857;
+            --cz-amber: #F59E0B;
+            --cz-canvas: #F8FAFC;
+            --cz-ink: #0F172A;
+            --cz-body: #475569;
+            --cz-muted: #64748B;
+            --cz-border: #CBD5E1;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
         body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--cz-canvas);
+            color: var(--cz-body);
             min-height: 100vh;
-            background: #F5F7FB;
-            background-image: radial-gradient(ellipse at 30% 20%, rgba(0,122,255,0.06) 0%, transparent 50%),
-                              radial-gradient(ellipse at 70% 80%, rgba(52,199,89,0.04) 0%, transparent 50%);
+            -webkit-font-smoothing: antialiased;
+        }
+        .cz-auth-split {
+            display: grid;
+            grid-template-columns: 1fr;
+            min-height: 100vh;
+        }
+        @media (min-width: 992px) {
+            .cz-auth-split {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .cz-auth-brand-pane {
+            background-color: var(--cz-dark);
+            background-image:
+                radial-gradient(70% 60% at 15% 15%, rgba(16, 185, 129, 0.16) 0%, transparent 65%),
+                radial-gradient(50% 50% at 90% 85%, rgba(245, 158, 11, 0.10) 0%, transparent 60%),
+                linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+            color: #FFFFFF;
+            padding: 32px 24px;
             display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 32px;
+        }
+        @media (min-width: 992px) {
+            .cz-auth-brand-pane {
+                padding: 48px 56px;
+                position: sticky;
+                top: 0;
+                height: 100vh;
+            }
+        }
+        .cz-back-link {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            padding: 2rem 1rem;
-        }
-
-        .register-container {
-            width: 100%;
-            max-width: 520px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .register-card {
-            background: #ffffff;
-            border-radius: 24px;
-            padding: 2.25rem 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03),
-                        0 20px 40px -8px rgba(0,0,0,0.06),
-                        0 0 0 1px rgba(0,0,0,0.04);
-        }
-
-        .brand-icon {
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, #007AFF, #0055D4);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.25rem;
-            color: #fff;
-            font-size: 1.6rem;
-            box-shadow: 0 8px 20px rgba(0,122,255,0.25);
-        }
-
-        .register-title {
-            font-size: 1.35rem;
-            font-weight: 800;
-            color: #0F172A;
-            text-align: center;
-            margin-bottom: 0.25rem;
-            letter-spacing: -0.02em;
-        }
-
-        .register-subtitle {
-            font-size: 0.83rem;
-            color: #64748B;
-            text-align: center;
-            margin-bottom: 1.75rem;
-        }
-
-        .form-floating-light {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-
-        .form-floating-light input {
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            color: #1E293B;
-            font-size: 0.9rem;
-            padding: 0.75rem 1rem 0.75rem 2.75rem;
-            width: 100%;
+            gap: 8px;
+            color: #CBD5E1;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(255, 255, 255, 0.04);
+            width: fit-content;
             transition: all 0.2s ease;
         }
-
-        .form-floating-light input:focus {
-            background: #ffffff;
-            border-color: #007AFF;
-            box-shadow: 0 0 0 3px rgba(0,122,255,0.12);
-            outline: none;
-            color: #1E293B;
+        .cz-back-link:hover {
+            color: #FFFFFF;
+            border-color: var(--cz-emerald);
+            background: rgba(16, 185, 129, 0.12);
         }
-
-        .form-floating-light input::placeholder { color: #94A3B8; font-size: 0.85rem; }
-
-        .form-floating-light .input-icon {
+        .cz-brand-emblem {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: #022C22;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.45rem;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+        }
+        .cz-brand-feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+        .cz-brand-feature i {
+            color: var(--cz-emerald);
+            font-size: 1.15rem;
+            margin-top: 2px;
+        }
+        .cz-auth-form-pane {
+            background-color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+        }
+        @media (min-width: 992px) {
+            .cz-auth-form-pane {
+                padding: 48px 56px;
+            }
+        }
+        .cz-auth-form-box {
+            width: 100%;
+            max-width: 460px;
+        }
+        .cz-field-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--cz-ink);
+            margin-bottom: 6px;
+        }
+        .cz-input-wrap {
+            position: relative;
+        }
+        .cz-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 46px 0 44px;
+            border-radius: 12px;
+            border: 1px solid var(--cz-border);
+            background-color: var(--cz-canvas);
+            color: var(--cz-ink);
+            font-size: 0.92rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .cz-input:focus {
+            background-color: #FFFFFF;
+            border-color: var(--cz-emerald-dark);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);
+            outline: none;
+        }
+        .cz-input.is-invalid {
+            border-color: #DC2626;
+            background-color: #FEF2F2;
+        }
+        .cz-input-icon {
             position: absolute;
-            left: 0.95rem;
+            left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: #94A3B8;
+            color: var(--cz-muted);
             font-size: 1.05rem;
-            transition: color 0.2s;
+            pointer-events: none;
         }
-
-        .form-floating-light input:focus ~ .input-icon { color: #007AFF; }
-
-        .form-label-custom {
-            font-size: 0.76rem;
-            font-weight: 600;
-            color: #475569;
-            margin-bottom: 0.35rem;
-            display: block;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .password-hint {
-            font-size: 0.72rem;
-            color: #64748B;
-            margin-top: -0.5rem;
-            margin-bottom: 1rem;
-            line-height: 1.4;
-        }
-
-        .btn-register {
-            background: linear-gradient(135deg, #007AFF, #0055D4);
+        .cz-toggle-pass {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
             border: none;
-            color: #fff;
-            font-weight: 600;
-            font-size: 0.95rem;
-            padding: 0.85rem;
-            border-radius: 12px;
+            background: transparent;
+            color: var(--cz-muted);
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .cz-toggle-pass:hover {
+            color: var(--cz-ink);
+            background-color: #E2E8F0;
+        }
+        .cz-btn-submit {
             width: 100%;
-            transition: all 0.3s;
-            letter-spacing: 0.3px;
-            box-shadow: 0 4px 14px rgba(0,122,255,0.25);
+            min-height: 48px;
+            border-radius: 12px;
+            border: none;
+            background-color: var(--cz-emerald-dark);
+            color: #FFFFFF;
+            font-weight: 700;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(5, 150, 105, 0.28);
+            transition: all 0.2s ease;
         }
-
-        .btn-register:hover {
-            background: linear-gradient(135deg, #0055D4, #003DA5);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,122,255,0.35);
-            color: #fff;
+        .cz-btn-submit:hover {
+            background-color: var(--cz-emerald-deep);
+            transform: translateY(-1px);
         }
-
-        .error-msg {
+        .cz-alert-error {
             background: #FEF2F2;
             border: 1px solid #FECACA;
-            color: #DC2626;
+            color: #991B1B;
             border-radius: 12px;
-            padding: 0.75rem 1rem;
-            font-size: 0.82rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .error-msg ul {
-            margin-bottom: 0;
-            padding-left: 1.2rem;
+            padding: 12px 16px;
+            font-size: 0.84rem;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="register-container">
-        <div class="register-card">
-            <div class="brand-icon">
-                <i class="bi bi-person-badge"></i>
+    <div class="cz-auth-split">
+        <!-- Mitad Izquierda: Panel Oscuro Multipartes El Tuerca -->
+        <aside class="cz-auth-brand-pane">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <a href="{{ route('home') }}" class="cz-back-link">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Volver a la tienda</span>
+                </a>
+                <span class="d-none d-sm-inline-flex align-items-center gap-2" style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #94A3B8;">
+                    <i class="bi bi-geo-alt-fill text-success"></i>2do Anillo · Santa Cruz
+                </span>
             </div>
-            <h1 class="register-title">Crear Cuenta de Cliente</h1>
-            <p class="register-subtitle">Regístrate para solicitar cotizaciones técnicas y pedidos directos</p>
 
-            @if($errors->any())
-                <div class="error-msg">
-                    <div class="d-flex align-items-center mb-1 fw-bold">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <span>Por favor corrige los siguientes errores:</span>
-                    </div>
-                    <ul>
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('register.submit') }}">
-                @csrf
-
-                <!-- Nombre Completo -->
-                <div class="mb-3">
-                    <label class="form-label-custom">Nombre Completo *</label>
-                    <div class="form-floating-light">
-                        <input type="text" name="nombre_completo" id="nombre_completo"
-                               placeholder="Ej. Juan Carlos Morales"
-                               value="{{ old('nombre_completo') }}"
-                               required autofocus>
-                        <i class="bi bi-person input-icon"></i>
+            <div class="my-auto py-3">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <span class="cz-brand-emblem">
+                        <i class="bi bi-gear-wide-connected"></i>
+                    </span>
+                    <div>
+                        <div class="fw-bold text-white" style="font-size: 1.15rem; letter-spacing: -0.02em;">MULTIPARTES EL TUERCA</div>
+                        <div style="font-size: 0.72rem; color: #94A3B8; letter-spacing: 0.08em; text-transform: uppercase;">Portal de Clientes y Talleres</div>
                     </div>
                 </div>
 
-                <!-- Teléfono / WhatsApp -->
-                <div class="mb-3">
-                    <label class="form-label-custom">Teléfono / WhatsApp * (Para despacho y proformas)</label>
-                    <div class="form-floating-light">
-                        <input type="text" name="telefono" id="telefono"
-                               placeholder="Ej. 70012345 o 3-3456789"
-                               value="{{ old('telefono') }}"
-                               required>
-                        <i class="bi bi-whatsapp input-icon text-success"></i>
+                <h1 class="fw-bold text-white mb-3" style="font-size: clamp(1.6rem, 2.8vw, 2.3rem); letter-spacing: -0.03em; line-height: 1.15;">
+                    Compra directo o genera proformas en segundos
+                </h1>
+                <p class="mb-4" style="color: #CBD5E1; font-size: 0.94rem; line-height: 1.6; max-width: 460px;">
+                    Crea tu cuenta gratuita para reservar stock real en nuestra tienda de Santa Cruz, descargar comprobantes en PDF y llevar historial de tus cotizaciones.
+                </p>
+
+                <div class="d-none d-lg-flex flex-column gap-3" style="max-width: 460px;">
+                    <div class="cz-brand-feature">
+                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                        <div>
+                            <div class="fw-bold text-white" style="font-size: 0.88rem;">Proformas y Comprobantes PDF</div>
+                            <div style="font-size: 0.8rem; color: #94A3B8;">Descarga tus notas de compra o cotizaciones formales al instante.</div>
+                        </div>
+                    </div>
+                    <div class="cz-brand-feature">
+                        <i class="bi bi-truck" style="color: var(--cz-amber);"></i>
+                        <div>
+                            <div class="fw-bold text-white" style="font-size: 0.88rem;">Retiro Rápido en 2do Anillo</div>
+                            <div style="font-size: 0.8rem; color: #94A3B8;">Preparamos tu pedido antes de que llegues a Av. Cristóbal de Mendoza #450.</div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Correo Electrónico -->
-                <div class="mb-3">
-                    <label class="form-label-custom">Correo Electrónico *</label>
-                    <div class="form-floating-light">
-                        <input type="email" name="correo" id="correo"
-                               placeholder="tu-correo@ejemplo.com"
-                               value="{{ old('correo') }}"
-                               required>
-                        <i class="bi bi-envelope input-icon"></i>
-                    </div>
-                </div>
+            <div class="d-none d-lg-flex align-items-center justify-content-between pt-3 border-top" style="border-color: rgba(148, 163, 184, 0.16) !important; font-size: 0.78rem; color: #94A3B8;">
+                <span>Tel: 3-345-6789</span>
+                <span>WhatsApp: 700-12345</span>
+            </div>
+        </aside>
 
-                <!-- Nombre de Usuario (Username) -->
-                <div class="mb-3">
-                    <label class="form-label-custom">Nombre de Usuario * (Para iniciar sesión)</label>
-                    <div class="form-floating-light">
-                        <input type="text" name="username" id="username"
-                               placeholder="Ej. juan_morales"
-                               value="{{ old('username') }}"
-                               required>
-                        <i class="bi bi-at input-icon"></i>
-                    </div>
-                </div>
-
-                <!-- Contraseña -->
-                <div class="mb-1">
-                    <label class="form-label-custom">Contraseña Segura *</label>
-                    <div class="form-floating-light">
-                        <input type="password" name="password" id="password"
-                               placeholder="Mínimo 8 caracteres"
-                               required>
-                        <i class="bi bi-lock input-icon"></i>
-                    </div>
-                </div>
-                <div class="password-hint">
-                    <i class="bi bi-shield-check me-1 text-primary"></i>Debe incluir mayúscula, minúscula, número y un símbolo (@$!%*?&#_.-).
-                </div>
-
-                <!-- Confirmar Contraseña -->
+        <!-- Mitad Derecha: Formulario Minimalista de Registro -->
+        <main class="cz-auth-form-pane">
+            <div class="cz-auth-form-box">
                 <div class="mb-4">
-                    <label class="form-label-custom">Confirmar Contraseña *</label>
-                    <div class="form-floating-light">
-                        <input type="password" name="password_confirmation" id="password_confirmation"
-                               placeholder="Repite tu contraseña"
-                               required>
-                        <i class="bi bi-check2-circle input-icon"></i>
-                    </div>
+                    <span class="d-inline-block fw-bold text-uppercase mb-2" style="font-size: 0.72rem; letter-spacing: 0.08em; color: var(--cz-emerald-deep);">
+                        Registro Rápido
+                    </span>
+                    <h2 class="fw-bold mb-1" style="font-size: 1.7rem; color: var(--cz-ink); letter-spacing: -0.025em;">
+                        Crear Cuenta de Cliente
+                    </h2>
+                    <p class="m-0" style="font-size: 0.88rem; color: var(--cz-muted);">
+                        Completa tus datos para comprar online y generar proformas técnicas.
+                    </p>
                 </div>
 
-                <button type="submit" class="btn btn-register">
-                    <i class="bi bi-check-circle-fill me-2"></i>Registrarme y Acceder
-                </button>
-            </form>
+                @if($errors->any())
+                    <div class="cz-alert-error" role="alert">
+                        <div class="d-flex align-items-center gap-2 fw-bold mb-1">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>Revisa los campos marcados:</span>
+                        </div>
+                        <ul class="mb-0 ps-3">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
-            <div class="text-center mt-4 pt-3 border-top" style="border-color: rgba(226, 232, 240, 0.8) !important;">
-                <span class="text-muted" style="font-size: 0.85rem;">¿Ya tienes cuenta registrada?</span>
-                <a href="{{ route('login') }}" class="ms-1 fw-semibold text-decoration-none" style="color: #007AFF; font-size: 0.85rem;">
-                    Inicia sesión aquí
-                </a>
-            </div>
+                <form method="POST" action="{{ route('register.submit') }}" novalidate>
+                    @csrf
 
-            <div class="text-center mt-3">
-                <a href="{{ route('home') }}" class="text-secondary text-decoration-none" style="font-size: 0.82rem;">
-                    <i class="bi bi-arrow-left me-1"></i>Volver al Catálogo Público
-                </a>
+                    <div class="mb-3">
+                        <label for="nombre_completo" class="cz-field-label">Nombre Completo o Taller *</label>
+                        <div class="cz-input-wrap">
+                            <i class="bi bi-person cz-input-icon"></i>
+                            <input type="text"
+                                   name="nombre_completo"
+                                   id="nombre_completo"
+                                   class="cz-input @error('nombre_completo') is-invalid @enderror"
+                                   placeholder="Ej. Juan Carlos Morales"
+                                   value="{{ old('nombre_completo') }}"
+                                   required
+                                   autofocus>
+                        </div>
+                        @error('nombre_completo')
+                            <div class="text-danger small mt-1 fw-medium">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-6">
+                            <label for="telefono" class="cz-field-label">Teléfono / WhatsApp *</label>
+                            <div class="cz-input-wrap">
+                                <i class="bi bi-whatsapp cz-input-icon text-success"></i>
+                                <input type="text"
+                                       name="telefono"
+                                       id="telefono"
+                                       class="cz-input @error('telefono') is-invalid @enderror"
+                                       placeholder="Ej. 70012345"
+                                       value="{{ old('telefono') }}"
+                                       required>
+                            </div>
+                            @error('telefono')
+                                <div class="text-danger small mt-1 fw-medium">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="username" class="cz-field-label">Nombre de Usuario *</label>
+                            <div class="cz-input-wrap">
+                                <i class="bi bi-at cz-input-icon"></i>
+                                <input type="text"
+                                       name="username"
+                                       id="username"
+                                       class="cz-input @error('username') is-invalid @enderror"
+                                       placeholder="Ej. juan_morales"
+                                       value="{{ old('username') }}"
+                                       required>
+                            </div>
+                            @error('username')
+                                <div class="text-danger small mt-1 fw-medium">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="correo" class="cz-field-label">Correo Electrónico *</label>
+                        <div class="cz-input-wrap">
+                            <i class="bi bi-envelope cz-input-icon"></i>
+                            <input type="email"
+                                   name="correo"
+                                   id="correo"
+                                   class="cz-input @error('correo') is-invalid @enderror"
+                                   placeholder="tu-correo@ejemplo.com"
+                                   value="{{ old('correo') }}"
+                                   required>
+                        </div>
+                        @error('correo')
+                            <div class="text-danger small mt-1 fw-medium">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="cz-field-label">Contraseña Segura *</label>
+                        <div class="cz-input-wrap">
+                            <i class="bi bi-lock cz-input-icon"></i>
+                            <input type="password"
+                                   name="password"
+                                   id="password"
+                                   class="cz-input @error('password') is-invalid @enderror"
+                                   placeholder="Mínimo 8 caracteres"
+                                   required>
+                            <button type="button"
+                                    class="cz-toggle-pass"
+                                    onclick="togglePasswordField('password', this)"
+                                    aria-label="Mostrar u ocultar contraseña">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div class="mt-1" style="font-size: 0.74rem; color: var(--cz-muted);">
+                            <i class="bi bi-shield-check text-success me-1"></i>Incluye mayúscula, minúscula, número y un símbolo (@$!%*?&#_.-).
+                        </div>
+                        @error('password')
+                            <div class="text-danger small mt-1 fw-medium">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password_confirmation" class="cz-field-label">Confirmar Contraseña *</label>
+                        <div class="cz-input-wrap">
+                            <i class="bi bi-check2-circle cz-input-icon"></i>
+                            <input type="password"
+                                   name="password_confirmation"
+                                   id="password_confirmation"
+                                   class="cz-input"
+                                   placeholder="Repite tu contraseña"
+                                   required>
+                            <button type="button"
+                                    class="cz-toggle-pass"
+                                    onclick="togglePasswordField('password_confirmation', this)"
+                                    aria-label="Mostrar u ocultar confirmación">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="cz-btn-submit">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Crear Cuenta y Acceder</span>
+                    </button>
+                </form>
+
+                <div class="text-center mt-4 pt-4 border-top" style="border-color: #E2E8F0 !important;">
+                    <span style="font-size: 0.88rem; color: var(--cz-muted);">¿Ya tienes una cuenta registrada?</span>
+                    <a href="{{ route('login') }}" class="ms-1 fw-bold text-decoration-none" style="color: var(--cz-emerald-deep); font-size: 0.88rem;">
+                        Iniciar sesión
+                    </a>
+                </div>
             </div>
-        </div>
+        </main>
     </div>
+
+    <script>
+        function togglePasswordField(id, btn) {
+            const input = document.getElementById(id);
+            if (!input) return;
+            const isPass = input.type === 'password';
+            input.type = isPass ? 'text' : 'password';
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.className = isPass ? 'bi bi-eye-slash' : 'bi bi-eye';
+            }
+        }
+    </script>
 </body>
 </html>
