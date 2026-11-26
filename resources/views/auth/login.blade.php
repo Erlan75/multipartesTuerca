@@ -24,6 +24,11 @@
             --cz-border: #CBD5E1;
         }
         *, *::before, *::after { box-sizing: border-box; }
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-x: clip;
+        }
         body {
             margin: 0;
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -34,12 +39,17 @@
         }
         .cz-auth-split {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             min-height: 100vh;
+            width: 100%;
         }
-        @media (min-width: 992px) {
+        .cz-auth-split > * {
+            min-width: 0;
+            max-width: 100%;
+        }
+        @media (min-width: 900px) {
             .cz-auth-split {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             }
         }
         /* Mitad Izquierda: Identidad Oscura Premium */
@@ -52,15 +62,16 @@
                 linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
             background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
             color: #FFFFFF;
-            padding: 32px 24px;
+            padding: 20px 16px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 32px;
+            gap: 20px;
         }
-        @media (min-width: 992px) {
+        @media (min-width: 900px) {
             .cz-auth-brand-pane {
                 padding: 48px 56px;
+                gap: 32px;
             }
         }
         .cz-back-link {
@@ -115,9 +126,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 40px 24px;
+            padding: 28px 16px;
         }
-        @media (min-width: 992px) {
+        @media (min-width: 900px) {
             .cz-auth-form-pane {
                 padding: 48px 56px;
             }

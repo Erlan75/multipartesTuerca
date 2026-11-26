@@ -1,9 +1,9 @@
-<!-- Fat Footer Oscuro (#0F172A) en 4 Columnas -->
+<!-- Fat Footer Oscuro (#0F172A) Responsivo (4 col desktop / 2 col tablet / 1 col móvil) -->
 <footer id="ubicacion" class="cz-footer">
     <div class="cz-container">
-        <div class="row g-5">
+        <div class="cz-footer-grid">
             <!-- Columna 1: Identidad de Multipartes El Tuerca -->
-            <div class="col-12 col-lg-4">
+            <div>
                 <a href="{{ route('home') }}" class="cz-brand mb-3">
                     <span class="cz-brand-mark">
                         <i class="bi bi-gear-wide-connected"></i>
@@ -29,7 +29,7 @@
             </div>
 
             <!-- Columna 2: Enlaces Rápidos -->
-            <div class="col-6 col-md-4 col-lg-2">
+            <div>
                 <h3 class="cz-footer-heading">Enlaces Rápidos</h3>
                 <ul class="cz-footer-list">
                     <li><a href="#catalogo">Catálogo Completo</a></li>
@@ -41,7 +41,7 @@
             </div>
 
             <!-- Columna 3: Sistemas y Marcas -->
-            <div class="col-6 col-md-4 col-lg-2">
+            <div>
                 <h3 class="cz-footer-heading">Marcas Clave</h3>
                 <ul class="cz-footer-list">
                     <li><a href="{{ route('home', ['marca' => 'Toyota']) }}#catalogo">Toyota</a></li>
@@ -54,7 +54,7 @@
             </div>
 
             <!-- Columna 4: Horarios y Dirección Exacta -->
-            <div class="col-12 col-md-4 col-lg-4">
+            <div>
                 <h3 class="cz-footer-heading">Casa Matriz y Horarios</h3>
                 <ul class="cz-footer-list">
                     <li class="d-flex align-items-start gap-2">

@@ -319,7 +319,7 @@
                                     <span class="font-mono-cz fw-semibold text-dark">OEM ${escapar(it.oem)}</span>
                                     <span>&middot;</span>
                                     <span>${escapar(it.marca)}</span>
-                                    ${it.vehiculos ? `<span>&middot;</span><span class="text-truncate" style="max-width:220px;">${escapar(it.vehiculos)}</span>` : ''}
+                                    ${it.vehiculos ? `<span>&middot;</span><span class="text-truncate" style="max-width:100%;">${escapar(it.vehiculos)}</span>` : ''}
                                 </div>
                             </div>
                         </div>

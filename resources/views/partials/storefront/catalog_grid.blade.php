@@ -179,9 +179,9 @@
             </div>
         @endif
 
-        <!-- Grilla de Product Cards (12 columnas responsivas) -->
+        <!-- Grilla de Product Cards (1 col móvil, 2 col tablet, 3-4 col desktop) -->
         @if($productos->count() > 0)
-            <div class="row g-4">
+            <div class="cz-catalog-grid">
                 @foreach($productos as $p)
                     @php
                         $stock = (int) $p->stock_actual;
@@ -210,8 +210,7 @@
                             'fallback'     => $p->foto_fallback_url,
                         ];
                     @endphp
-                    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-                        <article class="cz-product-card">
+                    <article class="cz-product-card">
                             <div>
                                 <!-- Cabecera visual: Disponibilidad + Código OEM -->
                                 <div class="cz-product-top">
@@ -298,7 +297,6 @@
                                 </div>
                             </div>
                         </article>
-                    </div>
                 @endforeach
             </div>
 

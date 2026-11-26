@@ -6,7 +6,7 @@
             <span class="cz-brand-mark">
                 <i class="bi bi-gear-wide-connected"></i>
             </span>
-            <span>
+            <span class="min-w-0">
                 <span class="d-block cz-brand-name">MULTIPARTES EL TUERCA</span>
                 <span class="d-block cz-brand-loc">Santa Cruz · Repuestos OEM</span>
             </span>

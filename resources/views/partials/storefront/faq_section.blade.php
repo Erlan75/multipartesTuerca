@@ -1,7 +1,7 @@
 <!-- Preguntas Frecuentes (FAQ Accordion con animación suave) -->
 <section id="preguntas-frecuentes" class="cz-section">
     <div class="cz-container">
-        <div class="row g-5 align-items-start">
+        <div class="row g-4 g-lg-5 align-items-start">
             <div class="col-12 col-lg-4">
                 <div class="cz-section-eyebrow">Soporte al Comprador</div>
                 <h2 class="cz-section-title">Preguntas Frecuentes</h2>
