@@ -114,7 +114,7 @@
             <div style="font-size:11px;">Repuestos Japoneses y Coreanos</div>
             <div style="font-size:11px;">Av. Cristóbal de Mendoza #450 (2do Anillo)</div>
             <div style="font-size:11px;">Santa Cruz de la Sierra - Bolivia</div>
-            <div style="font-size:11px;">Tel: 3-345-6789 / WhatsApp: 700-12345</div>
+            <div style="font-size:11px;">Tel: 3-345-6789 / WhatsApp: 73397587</div>
         </div>
 
         <div class="t-divider"></div>
@@ -226,7 +226,7 @@
                     </div>
                 </div>
                 <div style="font-size:0.8rem;color:#475569;">
-                    Av. Cristóbal de Mendoza #450 (Segundo Anillo) · Tel: (591) 3-345-6789 · WhatsApp: (+591) 700-12345
+                    Av. Cristóbal de Mendoza #450 (Segundo Anillo) · Tel: (591) 3-345-6789 · WhatsApp: +591 73397587
                 </div>
             </div>
             <div class="col-md-5 text-md-end mt-3 mt-md-0">

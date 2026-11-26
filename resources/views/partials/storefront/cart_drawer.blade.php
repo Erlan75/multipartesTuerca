@@ -439,7 +439,7 @@
         }
 
         const mensajeWa = `Hola Multipartes El Tuerca, deseo consultar disponibilidad y precio para el repuesto: ${producto.nombre_pieza} (OEM: ${producto.codigo_oem}, Fabricante: ${producto.marca_fabricante || ''}). ¿Lo tienen para entrega inmediata en Santa Cruz?`;
-        document.getElementById('modalBtnWhatsApp').setAttribute('href', 'https://wa.me/59170012345?text=' + encodeURIComponent(mensajeWa));
+        document.getElementById('modalBtnWhatsApp').setAttribute('href', 'https://wa.me/59173397587?text=' + encodeURIComponent(mensajeWa));
 
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCompatibilidad')).show();
     }

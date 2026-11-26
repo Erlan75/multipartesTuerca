@@ -8,7 +8,7 @@
                 <p class="cz-section-sub mb-4">
                     Resolvemos las dudas más comunes de propietarios, mecánicos y encargados de flota antes de comprar.
                 </p>
-                <a href="https://wa.me/59170012345?text={{ urlencode('Hola Multipartes El Tuerca, tengo una consulta sobre repuestos.') }}"
+                <a href="https://wa.me/59173397587?text={{ urlencode('Hola Multipartes El Tuerca, tengo una consulta sobre repuestos.') }}"
                    target="_blank"
                    class="cz-btn-dark">
                     <i class="bi bi-whatsapp text-success"></i>

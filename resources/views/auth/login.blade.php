@@ -277,7 +277,7 @@
 
             <div class="d-none d-lg-flex align-items-center justify-content-between pt-3 border-top" style="border-color: rgba(148, 163, 184, 0.16) !important; font-size: 0.78rem; color: #94A3B8;">
                 <span>Av. Cristóbal de Mendoza #450</span>
-                <span>WhatsApp: 700-12345</span>
+                <span>WhatsApp: 73397587</span>
             </div>
         </aside>
 

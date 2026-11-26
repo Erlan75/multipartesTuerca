@@ -17,7 +17,7 @@
                     Especialistas en repuestos originales y alternativos certificados para vehículos japoneses y coreanos. Inventario real, verificación por código OEM y respaldo directo a talleres y propietarios.
                 </p>
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="https://wa.me/59170012345" target="_blank" class="cz-btn-emerald" style="min-height: 44px; padding: 0 18px; font-size: 0.85rem;">
+                    <a href="https://wa.me/59173397587" target="_blank" class="cz-btn-emerald" style="min-height: 44px; padding: 0 18px; font-size: 0.85rem;">
                         <i class="bi bi-whatsapp"></i>
                         <span>WhatsApp Directo</span>
                     </a>
@@ -69,7 +69,7 @@
                     </li>
                     <li class="d-flex align-items-center gap-2">
                         <i class="bi bi-whatsapp text-success flex-shrink-0"></i>
-                        <a href="https://wa.me/59170012345" target="_blank">WhatsApp: 700-12345</a>
+                        <a href="https://wa.me/59173397587" target="_blank">WhatsApp: 73397587</a>
                     </li>
                     <li class="d-flex align-items-start gap-2">
                         <i class="bi bi-clock-fill text-warning mt-1 flex-shrink-0"></i>

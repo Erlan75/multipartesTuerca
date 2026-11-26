@@ -132,7 +132,7 @@
             <td style="width:62%; vertical-align:top;">
                 <div class="brand">MULTIPARTES EL TUERCA</div>
                 <div class="brand-sub">Casa Matriz · Av. Cristóbal de Mendoza #450 (2do Anillo) — Santa Cruz de la Sierra, Bolivia</div>
-                <div class="brand-sub">NIT: 4589214018 · Tel: (591) 3-345-6789 · WhatsApp: (+591) 700-12345</div>
+                <div class="brand-sub">NIT: 4589214018 · Tel: (591) 3-345-6789 · WhatsApp: +591 73397587</div>
             </td>
             <td style="width:38%; vertical-align:top;">
                 <div class="folio-box">

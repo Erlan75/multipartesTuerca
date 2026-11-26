@@ -324,7 +324,7 @@
                         <i class="bi bi-arrow-counterclockwise"></i>
                         <span>Limpiar filtros</span>
                     </a>
-                    <a href="https://wa.me/59170012345?text={{ urlencode('Hola Multipartes El Tuerca, busco un repuesto que no encontré en el catálogo web: ' . ($buscar ?? '')) }}"
+                    <a href="https://wa.me/59173397587?text={{ urlencode('Hola Multipartes El Tuerca, busco un repuesto que no encontré en el catálogo web: ' . ($buscar ?? '')) }}"
                        target="_blank"
                        class="cz-btn-emerald">
                         <i class="bi bi-whatsapp"></i>

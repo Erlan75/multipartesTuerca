@@ -58,7 +58,7 @@
                     </div>
                 </div>
                 <div class="small text-secondary">
-                    Av. Cristóbal de Mendoza #450 (2do Anillo) · Tel: (591) 3-345-6789 · WhatsApp: 700-12345
+                    Av. Cristóbal de Mendoza #450 (2do Anillo) · Tel: (591) 3-345-6789 · WhatsApp: 73397587
                 </div>
             </div>
             <div class="col-md-5 text-md-end mt-3 mt-md-0">

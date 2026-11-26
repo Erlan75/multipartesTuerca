@@ -110,7 +110,7 @@
                         <i class="bi bi-upc-scan"></i>
                         <span>Validar en Catálogo</span>
                     </a>
-                    <a href="https://wa.me/59170012345?text={{ urlencode('Hola Multipartes El Tuerca, necesito verificar la compatibilidad OEM de un repuesto.') }}"
+                    <a href="https://wa.me/59173397587?text={{ urlencode('Hola Multipartes El Tuerca, necesito verificar la compatibilidad OEM de un repuesto.') }}"
                        target="_blank"
                        class="cz-btn-ghost-dark">
                         <i class="bi bi-whatsapp text-success"></i>

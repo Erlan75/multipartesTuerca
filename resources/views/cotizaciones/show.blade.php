@@ -84,7 +84,7 @@
             </div>
             <div style="font-size:0.8rem;color:#475569;line-height:1.5;">
                 <div><i class="bi bi-geo-alt me-1"></i>Av. Cristóbal de Mendoza #450 (2do Anillo), Santa Cruz de la Sierra - Bolivia</div>
-                <div><i class="bi bi-telephone me-1"></i>Tel: (591) 3-345-6789 · WhatsApp Comercial: (+591) 700-12345</div>
+                <div><i class="bi bi-telephone me-1"></i>Tel: (591) 3-345-6789 · WhatsApp Comercial: +591 73397587</div>
             </div>
         </div>
         <div class="col-md-5 text-md-end mt-3 mt-md-0">
