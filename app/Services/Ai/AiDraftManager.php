@@ -254,7 +254,8 @@ class AiDraftManager
     }
 
     /**
-     * Incorpora los argumentos de un Function Call de Gemini en la máquina de estados local.
+     * Incorpora los argumentos de un Function Call de Gemini en la máquina de estados local
+     * y los fusiona con el extractor determinístico multi-slot para que no se pierda ningún dato.
      */
     public function procesarFunctionCallGemini(
         string $fnName,
@@ -262,7 +263,10 @@ class AiDraftManager
         ?array $draftActivo,
         int $rolId,
         string $nombreRol,
-        int $userId
+        int $userId,
+        string $preguntaOriginal = '',
+        string $preguntaLimpia = '',
+        string $norm = ''
     ): array {
         if (!$this->executor->rolPuedeEjecutarOperacion($rolId, $fnName)) {
             return $this->text->respuestaRestriccion("Tu cuenta de {$nombreRol} no tiene permiso para {$this->text->etiquetaOperacionAmigable($fnName)}.");
@@ -288,6 +292,10 @@ class AiDraftManager
             if (isset($args['descuento_frecuente'])) {
                 $this->setCampo($draft, 'descuento_frecuente', 'completado', (float) $args['descuento_frecuente']);
             }
+            if ($preguntaLimpia !== '') {
+                $normUso = $norm !== '' ? $norm : $this->text->normalizarFonetica($this->text->normalizarTexto($preguntaLimpia));
+                $this->extraerCamposClienteNuevo($draft, $preguntaLimpia, $normUso, $draft['esperando'] ?? null, true);
+            }
             return $this->evaluarEstadoBorrador($draft, $userId, 'gemini');
         }
 
@@ -299,6 +307,16 @@ class AiDraftManager
                 $cli = $this->text->buscarClientePorTexto($cliTxt);
                 if ($cli) {
                     $this->setCampo($draft, 'cliente', 'completado', $this->text->formatearClienteArray($cli));
+                } elseif (mb_strlen($cliTxt) >= 3) {
+                    $nombreLimpioCli = mb_convert_case($cliTxt, MB_CASE_TITLE, 'UTF-8');
+                    $this->setCampo($draft, 'cliente', 'completado', [
+                        'id_cliente'             => 1,
+                        'nombre_razon_social'    => $nombreLimpioCli,
+                        'ci_nit'                 => 'S/N',
+                        'tipo_cliente'           => preg_match('/\btaller\b/i', $nombreLimpioCli) ? 'Taller/Mecánico' : 'Particular',
+                        'descuento_frecuente'    => 0.0,
+                        'cliente_nuevo_sugerido' => true,
+                    ]);
                 }
             }
         }
@@ -307,9 +325,24 @@ class AiDraftManager
             if (!empty($args['metodo_pago'])) {
                 $this->setCampo($draft, 'metodo_pago', 'completado', $this->text->normalizarMetodoPago((string) $args['metodo_pago']));
             }
-            if (isset($args['descuento_total']) && (float) $args['descuento_total'] > 0) {
+            if (!empty($args['sin_descuento'])) {
+                $this->setCampo($draft, 'descuento', 'completado', 0.0);
+                $draft['descuento_pct_pend'] = null;
+            } elseif (isset($args['descuento_porcentaje']) && (float) $args['descuento_porcentaje'] > 0) {
+                $draft['descuento_pct_pend'] = min(50.0, (float) $args['descuento_porcentaje']);
+                $this->setCampo($draft, 'descuento', 'completado', 0.0);
+            } elseif (isset($args['descuento_total']) && (float) $args['descuento_total'] > 0) {
                 $this->setCampo($draft, 'descuento', 'completado', round((float) $args['descuento_total'], 2));
             }
+            if (!empty($args['monto_recibido']) && (float) $args['monto_recibido'] > 0) {
+                $this->setCampo($draft, 'pago_detalle', 'completado', ['monto_recibido' => round((float) $args['monto_recibido'], 2)]);
+            } elseif (!empty($args['nro_referencia'])) {
+                $this->setCampo($draft, 'pago_detalle', 'completado', ['nro_referencia' => strtoupper(trim((string) $args['nro_referencia']))]);
+            }
+        }
+
+        if (!empty($args['sin_mas_productos'])) {
+            $draft['sin_mas_productos'] = true;
         }
 
         if ($fnName === 'preparar_cotizacion' && !empty($args['dias_vigencia'])) {
@@ -366,6 +399,12 @@ class AiDraftManager
                     continue;
                 }
                 $busq = $this->text->buscarCandidatosProducto($pTxt);
+                if ($busq['estado'] === 'ninguno' && $norm !== '') {
+                    $fragFallback = $this->text->extraerFragmentoProductoLimpio($norm, $fnName, $args['cliente'] ?? null);
+                    if ($fragFallback !== '') {
+                        $busq = $this->text->buscarCandidatosProducto($fragFallback);
+                    }
+                }
                 if ($busq['estado'] === 'unico') {
                     $resueltos[] = $this->text->armarItemDesdeProducto($busq['producto'], $cant, $fnName === 'preparar_compra', $costo);
                     if ($fnName === 'preparar_compra' && $costo !== null) {
@@ -395,6 +434,12 @@ class AiDraftManager
             if (!empty($resueltos)) {
                 $this->setCampo($draft, 'items', 'completado', $resueltos);
             }
+        }
+
+        // Fusionar siempre con el extractor determinístico local sobre la frase original para completar slots omitidos por Gemini
+        if ($preguntaLimpia !== '') {
+            $normUso = $norm !== '' ? $norm : $this->text->normalizarFonetica($this->text->normalizarTexto($preguntaLimpia));
+            return $this->absorberMensajeEnBorrador($draft, $preguntaOriginal ?: $preguntaLimpia, $preguntaLimpia, $normUso, $userId, 'gemini', true);
         }
 
         return $this->evaluarEstadoBorrador($draft, $userId, 'gemini');
@@ -480,6 +525,7 @@ class AiDraftManager
             'descuento_pct_aplicado' => null,
             'nuevo_producto_draft'   => null,
             'es_lista_dudosa'        => false,
+            'sin_mas_productos'      => false,
         ];
     }
 
@@ -494,6 +540,10 @@ class AiDraftManager
     ): array {
         $op = $draft['operacion'];
         $esperando = $draft['esperando'] ?? null;
+
+        if ($this->text->indicaCierreProductos($norm)) {
+            $draft['sin_mas_productos'] = true;
+        }
 
         // A. Detectar "no sé / no me acuerdo / cualquiera / normal"
         $esNingunoEnSeleccion = ($esperando === 'seleccion_producto' && !empty($draft['opciones_pendientes']) && $this->text->esRespuestaNinguno($norm));
@@ -597,7 +647,7 @@ class AiDraftManager
             }
         }
 
-        // E. Venta
+        // E. Venta (extracción multi-slot simultánea en cada turno)
         if ($op === 'preparar_venta') {
             if ($esperando === 'descuento') {
                 $cliArr = $this->valorCampo($draft, 'cliente');
@@ -608,6 +658,14 @@ class AiDraftManager
                 } elseif ($pctFrec > 0 && $this->text->esRespuestaAfirmativa($norm)) {
                     $draft['descuento_pct_pend'] = $pctFrec;
                     $this->setCampo($draft, 'descuento', 'completado', 0.0);
+                    $draft['esperando'] = null;
+                } elseif (($descDet = $this->text->extraerDescuentoDeTexto($norm)) !== null) {
+                    if ($descDet['tipo'] === 'pct') {
+                        $draft['descuento_pct_pend'] = $descDet['valor'];
+                        $this->setCampo($draft, 'descuento', 'completado', 0.0);
+                    } else {
+                        $this->setCampo($draft, 'descuento', 'completado', round((float) $descDet['valor'], 2));
+                    }
                     $draft['esperando'] = null;
                 } elseif (preg_match('/(\d+(?:[\.,]\d+)?)\s*(%|por\s*ciento|bs|bolivianos)?/u', $norm, $mD)) {
                     $val = (float) str_replace(',', '.', $mD[1]);
@@ -620,25 +678,27 @@ class AiDraftManager
                     $draft['esperando'] = null;
                 }
             } elseif ($this->estadoCampo($draft, 'descuento') === 'pendiente') {
-                if (preg_match('/sin\s+descuento/u', $norm)) {
-                    $this->setCampo($draft, 'descuento', 'completado', 0.0);
-                } elseif (preg_match('/(?:con\s+)?(?:un\s+)?(\d+(?:[\.,]\d+)?)\s*(%|por\s*ciento)\s*(?:de\s+)?descuento|descuento\s+(?:de(?:l)?\s+)?(\d+(?:[\.,]\d+)?)\s*(%|por\s*ciento|bs|bolivianos)?/u', $norm, $mDesc)) {
-                    if (!empty($mDesc[1])) {
-                        $draft['descuento_pct_pend'] = (float) str_replace(',', '.', $mDesc[1]);
+                $descDet = $this->text->extraerDescuentoDeTexto($norm);
+                if ($descDet !== null) {
+                    if ($descDet['tipo'] === 'pct') {
+                        $draft['descuento_pct_pend'] = $descDet['valor'];
                         $this->setCampo($draft, 'descuento', 'completado', 0.0);
-                    } elseif (!empty($mDesc[3])) {
-                        $val = (float) str_replace(',', '.', $mDesc[3]);
-                        if (!empty($mDesc[4]) && (str_contains($mDesc[4], '%') || str_contains($mDesc[4], 'ciento'))) {
-                            $draft['descuento_pct_pend'] = $val;
-                            $this->setCampo($draft, 'descuento', 'completado', 0.0);
-                        } else {
-                            $this->setCampo($draft, 'descuento', 'completado', round($val, 2));
-                        }
+                    } else {
+                        $this->setCampo($draft, 'descuento', 'completado', round((float) $descDet['valor'], 2));
                     }
                 }
             }
 
             $metodo = $this->text->detectarMetodoPagoExplicito($norm, $esperando === 'metodo_pago');
+            $pagoDet = $this->text->extraerPagoDetalleDeTexto(
+                $preguntaLimpia,
+                $norm,
+                $metodo ?? ($this->estadoCampo($draft, 'metodo_pago') === 'completado' ? (string) $this->valorCampo($draft, 'metodo_pago') : null)
+            );
+            if ($metodo === null && $pagoDet !== null && ($pagoDet['tipo'] ?? '') === 'efectivo') {
+                $metodo = 'Efectivo';
+            }
+
             if ($metodo !== null) {
                 $this->setCampo($draft, 'metodo_pago', 'completado', $metodo);
                 if ($esperando === 'metodo_pago') {
@@ -646,7 +706,16 @@ class AiDraftManager
                 }
             }
 
-            if ($esperando === 'pago_detalle') {
+            if ($pagoDet !== null && $this->estadoCampo($draft, 'pago_detalle') === 'pendiente') {
+                if (!empty($pagoDet['omitido'])) {
+                    $this->setCampo($draft, 'pago_detalle', 'omitido_por_usuario', null);
+                } elseif (!empty($pagoDet['data'])) {
+                    $this->setCampo($draft, 'pago_detalle', 'completado', $pagoDet['data']);
+                }
+                if ($esperando === 'pago_detalle') {
+                    $draft['esperando'] = null;
+                }
+            } elseif ($esperando === 'pago_detalle') {
                 $metActual = (string) $this->valorCampo($draft, 'metodo_pago', 'Efectivo');
                 if (preg_match('/\b(exacto|cabal|justo|sin vuelto|no tengo|ninguno)\b/u', $norm)) {
                     $this->setCampo($draft, 'pago_detalle', 'omitido_por_usuario', null);
@@ -750,30 +819,61 @@ class AiDraftManager
             }
         }
 
-        // I. Cliente en Venta / Cotización
-        if (in_array($op, ['preparar_venta', 'preparar_cotizacion'], true) && $this->estadoCampo($draft, 'cliente') === 'pendiente') {
-            if ($this->text->indicaClientePorDefecto($norm)) {
-                $this->setCampo($draft, 'cliente', 'omitido_por_usuario', null);
-                if ($esperando === 'cliente') {
-                    $draft['esperando'] = null;
-                }
-            } else {
-                $cli = $this->text->detectarClienteRegistradoEnTexto($preguntaLimpia, $norm);
-                if ($cli) {
-                    $this->setCampo($draft, 'cliente', 'completado', $this->text->formatearClienteArray($cli));
+        // I. Cliente en Venta / Cotización (registrado o nombre nuevo sugerido desde el turno 1)
+        $clienteNombreParaLimpieza = null;
+        if (in_array($op, ['preparar_venta', 'preparar_cotizacion'], true)) {
+            if ($this->estadoCampo($draft, 'cliente') === 'completado') {
+                $cliExistente = $this->valorCampo($draft, 'cliente');
+                $clienteNombreParaLimpieza = is_array($cliExistente) ? ($cliExistente['nombre_razon_social'] ?? null) : null;
+            } elseif ($this->estadoCampo($draft, 'cliente') === 'pendiente') {
+                if ($this->text->indicaClientePorDefecto($norm)) {
+                    $this->setCampo($draft, 'cliente', 'omitido_por_usuario', null);
                     if ($esperando === 'cliente') {
                         $draft['esperando'] = null;
                     }
-                } elseif ($esperando === 'cliente' && !$esPrimerTurno && mb_strlen(trim($preguntaLimpia)) >= 3) {
-                    $cliMostrador = $this->text->obtenerClienteOcasionalMostrador();
-                    $this->setCampo($draft, 'cliente', 'completado', [
-                        'id_cliente'          => (int) $cliMostrador->id_cliente,
-                        'nombre_razon_social' => $cliMostrador->nombre_razon_social . ' (Ref: ' . trim($preguntaLimpia) . ')',
-                        'ci_nit'              => $cliMostrador->ci_nit ?: 'S/N',
-                        'tipo_cliente'        => 'Particular',
-                        'descuento_frecuente' => 0.0,
-                    ]);
-                    $draft['esperando'] = null;
+                } else {
+                    $cli = $this->text->detectarClienteRegistradoEnTexto($preguntaLimpia, $norm);
+                    if ($cli) {
+                        $this->setCampo($draft, 'cliente', 'completado', $this->text->formatearClienteArray($cli));
+                        $clienteNombreParaLimpieza = $cli->nombre_razon_social;
+                        if ($esperando === 'cliente') {
+                            $draft['esperando'] = null;
+                        }
+                    } else {
+                        $nombreExtraido = $this->text->extraerNombreClienteDeFrase($preguntaLimpia);
+                        if ($nombreExtraido !== null) {
+                            $cliPorNombre = $this->text->buscarClientePorTexto($nombreExtraido);
+                            if ($cliPorNombre) {
+                                $this->setCampo($draft, 'cliente', 'completado', $this->text->formatearClienteArray($cliPorNombre));
+                                $clienteNombreParaLimpieza = $cliPorNombre->nombre_razon_social;
+                            } else {
+                                $this->setCampo($draft, 'cliente', 'completado', [
+                                    'id_cliente'             => 1,
+                                    'nombre_razon_social'    => $nombreExtraido,
+                                    'ci_nit'                 => 'S/N',
+                                    'tipo_cliente'           => preg_match('/\btaller\b/i', $nombreExtraido) ? 'Taller/Mecánico' : 'Particular',
+                                    'descuento_frecuente'    => 0.0,
+                                    'cliente_nuevo_sugerido' => true,
+                                ]);
+                                $clienteNombreParaLimpieza = $nombreExtraido;
+                            }
+                            if ($esperando === 'cliente') {
+                                $draft['esperando'] = null;
+                            }
+                        } elseif ($esperando === 'cliente' && !$esPrimerTurno && mb_strlen(trim($preguntaLimpia)) >= 3) {
+                            $nombreDirecto = mb_convert_case(trim($preguntaLimpia), MB_CASE_TITLE, 'UTF-8');
+                            $this->setCampo($draft, 'cliente', 'completado', [
+                                'id_cliente'             => 1,
+                                'nombre_razon_social'    => $nombreDirecto,
+                                'ci_nit'                 => 'S/N',
+                                'tipo_cliente'           => preg_match('/\btaller\b/i', $nombreDirecto) ? 'Taller/Mecánico' : 'Particular',
+                                'descuento_frecuente'    => 0.0,
+                                'cliente_nuevo_sugerido' => true,
+                            ]);
+                            $clienteNombreParaLimpieza = $nombreDirecto;
+                            $draft['esperando'] = null;
+                        }
+                    }
                 }
             }
         }
@@ -798,7 +898,7 @@ class AiDraftManager
                 }
             }
 
-            $fragProd = $this->text->extraerFragmentoProductoLimpio($norm, $op);
+            $fragProd = $this->text->extraerFragmentoProductoLimpio($norm, $op, $clienteNombreParaLimpieza);
             if ($fragProd !== '') {
                 $busqueda = $this->text->buscarCandidatosProducto($fragProd);
                 if ($busqueda['estado'] === 'unico') {
@@ -897,43 +997,10 @@ class AiDraftManager
                 return $this->text->respuestaAclaracion('¡Con gusto armamos la venta! ¿Qué repuesto vas a vender (o para qué vehículo) y cuántas unidades?', $origen);
             }
 
-            if ($this->estadoCampo($draft, 'cliente') === 'pendiente') {
-                $items = $this->valorCampo($draft, 'items', []);
-                $listaTxt = implode(', ', array_map(fn($i) => "{$i['cantidad']}x {$i['nombre_pieza']}", $items));
-                $draft['esperando'] = 'cliente';
-                $this->guardarBorrador($draft);
-                return $this->text->respuestaAclaracion(
-                    "¡Genial! Anoté {$listaTxt}. ¿A nombre de qué cliente o taller va esta venta? (Si es cliente de paso o no recuerdas el nombre, dime 'no sé' o 'normal').",
-                    $origen
-                );
-            }
-
-            $cliArr = $this->estadoCampo($draft, 'cliente') === 'completado'
-                ? $this->valorCampo($draft, 'cliente')
-                : $this->text->formatearClienteArray($this->text->obtenerClienteOcasionalMostrador());
-
-            if ($this->estadoCampo($draft, 'descuento') === 'pendiente') {
-                $items = $this->valorCampo($draft, 'items', []);
-                $bruto = round(array_sum(array_column($items, 'subtotal')), 2);
-                $pctFrec = (float) ($cliArr['descuento_frecuente'] ?? 0);
-                $draft['esperando'] = 'descuento';
-                $this->guardarBorrador($draft);
-
-                if ($pctFrec > 0) {
-                    $montoDesc = round($bruto * ($pctFrec / 100.0), 2);
-                    return $this->text->respuestaAclaracion(
-                        "Vi que {$cliArr['nombre_razon_social']} tiene un {$pctFrec}% de descuento frecuente (serían Bs. " . number_format($montoDesc, 2) . " menos). ¿Se lo aplico o va a precio normal?",
-                        $origen
-                    );
-                }
-                return $this->text->respuestaAclaracion(
-                    "Anotado para {$cliArr['nombre_razon_social']}. ¿Aplicamos algún descuento (en % o Bs.) o va a precio normal?",
-                    $origen
-                );
-            }
-
             $items = $this->valorCampo($draft, 'items', []);
+            $listaTxt = implode(', ', array_map(fn($i) => "{$i['cantidad']}x {$i['nombre_pieza']}", $items));
             $bruto = round(array_sum(array_column($items, 'subtotal')), 2);
+
             if (!empty($draft['descuento_pct_pend'])) {
                 $pctAplicado = (float) $draft['descuento_pct_pend'];
                 $calcDesc = round($bruto * ($pctAplicado / 100.0), 2);
@@ -941,16 +1008,69 @@ class AiDraftManager
                 $draft['descuento_pct_aplicado'] = $pctAplicado;
                 $draft['descuento_pct_pend'] = null;
             }
+
+            if ($this->estadoCampo($draft, 'cliente') === 'pendiente') {
+                $descTxtPrev = '';
+                if ($this->estadoCampo($draft, 'descuento') === 'completado') {
+                    $dVal = (float) $this->valorCampo($draft, 'descuento', 0.0);
+                    if (!empty($draft['descuento_pct_aplicado'])) {
+                        $descTxtPrev = " con {$draft['descuento_pct_aplicado']}% de descuento";
+                    } elseif ($dVal > 0) {
+                        $descTxtPrev = ' con Bs. ' . number_format($dVal, 2) . ' de descuento';
+                    }
+                }
+                $draft['esperando'] = 'cliente';
+                $this->guardarBorrador($draft);
+                return $this->text->respuestaAclaracion(
+                    "¡Perfecto! Anoté {$listaTxt}{$descTxtPrev}. ¿A nombre de qué cliente o taller va esta venta? (Si es cliente de paso o no recuerdas el nombre, dime 'no sé' o 'normal').",
+                    $origen
+                );
+            }
+
+            $cliArr = $this->estadoCampo($draft, 'cliente') === 'completado'
+                ? $this->valorCampo($draft, 'cliente')
+                : $this->text->formatearClienteArray($this->text->obtenerClienteOcasionalMostrador());
+            $esNuevoCli = !empty($cliArr['cliente_nuevo_sugerido']);
+            $cliDescLabel = $esNuevoCli
+                ? "{$cliArr['nombre_razon_social']} (como cliente nuevo/ocasional)"
+                : $cliArr['nombre_razon_social'];
+
+            if ($this->estadoCampo($draft, 'descuento') === 'pendiente') {
+                $pctFrec = (float) ($cliArr['descuento_frecuente'] ?? 0);
+                $draft['esperando'] = 'descuento';
+                $this->guardarBorrador($draft);
+
+                if ($pctFrec > 0) {
+                    $montoDesc = round($bruto * ($pctFrec / 100.0), 2);
+                    return $this->text->respuestaAclaracion(
+                        "Anoté {$listaTxt} para {$cliDescLabel} (tiene {$pctFrec}% de descuento frecuente, serían Bs. " . number_format($montoDesc, 2) . " menos). ¿Se lo aplico o va a precio normal?",
+                        $origen
+                    );
+                }
+                return $this->text->respuestaAclaracion(
+                    "Anoté {$listaTxt} para {$cliDescLabel}. ¿Aplicamos algún descuento (en % o Bs.) o va a precio normal?",
+                    $origen
+                );
+            }
+
             $descuento = $this->estadoCampo($draft, 'descuento') === 'completado'
                 ? round((float) $this->valorCampo($draft, 'descuento', 0.0), 2)
                 : 0.0;
 
             if ($this->estadoCampo($draft, 'metodo_pago') === 'pendiente') {
                 $neto = round(max(0.0, $bruto - $descuento), 2);
+                $descDetalleTxt = '';
+                if (!empty($draft['descuento_pct_aplicado']) && $descuento > 0) {
+                    $descDetalleTxt = " con {$draft['descuento_pct_aplicado']}% de descuento (Bs. " . number_format($descuento, 2) . ' menos)';
+                } elseif ($descuento > 0) {
+                    $descDetalleTxt = ' con Bs. ' . number_format($descuento, 2) . ' de descuento';
+                } elseif ($this->estadoCampo($draft, 'descuento') === 'completado') {
+                    $descDetalleTxt = ' a precio normal';
+                }
                 $draft['esperando'] = 'metodo_pago';
                 $this->guardarBorrador($draft);
                 return $this->text->respuestaAclaracion(
-                    'El total queda en Bs. ' . number_format($neto, 2) . '. ¿Cómo va a pagar: en efectivo, transferencia/QR, tarjeta o mixto?',
+                    "¡Perfecto! Anoté {$listaTxt} para {$cliDescLabel}{$descDetalleTxt}. El total queda en Bs. " . number_format($neto, 2) . ". Solo me falta saber: ¿cómo te pagó? (Efectivo, Transferencia/QR, Tarjeta o Mixto).",
                     $origen
                 );
             }
@@ -958,28 +1078,6 @@ class AiDraftManager
             $metodoPago = $this->estadoCampo($draft, 'metodo_pago') === 'completado'
                 ? (string) $this->valorCampo($draft, 'metodo_pago', 'Efectivo')
                 : 'Efectivo';
-
-            if ($this->estadoCampo($draft, 'pago_detalle') === 'pendiente') {
-                $neto = round(max(0.0, $bruto - $descuento), 2);
-                $draft['esperando'] = 'pago_detalle';
-                $this->guardarBorrador($draft);
-                if ($metodoPago === 'Efectivo') {
-                    return $this->text->respuestaAclaracion(
-                        'Perfecto, pago en Efectivo por Bs. ' . number_format($neto, 2) . ". ¿Con cuánto paga el cliente para calcularte el vuelto? (O dime 'exacto' / 'no sé').",
-                        $origen
-                    );
-                }
-                if ($metodoPago === 'Mixto') {
-                    return $this->text->respuestaAclaracion(
-                        'Pago Mixto por Bs. ' . number_format($neto, 2) . ". ¿Cuánto entrega en efectivo y cuánto por QR/tarjeta? (Si no tienes el desglose, dime 'no sé').",
-                        $origen
-                    );
-                }
-                return $this->text->respuestaAclaracion(
-                    "Perfecto, pago por {$metodoPago}. ¿Tienes el número de referencia o comprobante? (Si no lo tienes, dime 'no tengo').",
-                    $origen
-                );
-            }
 
             $pagoDetalle = $this->estadoCampo($draft, 'pago_detalle') === 'completado'
                 ? (array) $this->valorCampo($draft, 'pago_detalle', [])

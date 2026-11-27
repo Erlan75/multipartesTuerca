@@ -128,6 +128,7 @@ class AiSqlAssistantService
                 $resultadoGemini = $this->procesarViaGemini(
                     $preguntaOriginal,
                     $preguntaLimpia,
+                    $norm,
                     (string) $apiKey,
                     $rolId,
                     $nombreRol,
@@ -140,6 +141,8 @@ class AiSqlAssistantService
             } catch (\Throwable $e) {
                 Log::warning('AiSqlAssistantService: Conmutando a motor local tras excepción en Gemini: ' . $e->getMessage());
             }
+        } else {
+            Log::warning('AiSqlAssistantService: GEMINI_API_KEY ausente en configuración; atendiendo con motor local.');
         }
 
         // 6. Vía B (Transaccional local con máquina de estados completa)
@@ -218,32 +221,67 @@ class AiSqlAssistantService
 
     public function esSqlSeguro(string $sql, int $rolId = 1): bool
     {
-        $sqlTrim = trim($sql);
-        if (!preg_match('/^(SELECT|WITH)\b/i', $sqlTrim)) {
+        $sqlTrim = rtrim(trim($sql), "; \t\n\r\0\x0B");
+        if ($sqlTrim === '' || !preg_match('/^(SELECT|WITH)\b/i', $sqlTrim)) {
             return false;
         }
-        if (str_contains($sqlTrim, ';') || str_contains($sqlTrim, '--') || str_contains($sqlTrim, '/*')) {
+        if (str_contains($sqlTrim, ';') || str_contains($sqlTrim, '--') || str_contains($sqlTrim, '/*') || str_contains($sqlTrim, '*/')) {
             return false;
         }
-        if (preg_match('/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|CALL|EXEC|EXECUTE|COPY|VACUUM|SET|REPLACE|PG_SLEEP)\b/i', $sqlTrim)) {
+        if (preg_match('/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|CALL|DO|EXEC|EXECUTE|COPY|VACUUM|SET|REPLACE|MERGE|LOCK|PREPARE|DEALLOCATE|LISTEN|NOTIFY|PG_SLEEP|PG_READ_FILE|PG_LS_DIR|DBLINK)\b/i', $sqlTrim)) {
             return false;
         }
-        if (preg_match('/\bpassword_hash\b/i', $sqlTrim)) {
+        if (preg_match('/\b(password_hash|pg_catalog|pg_shadow|pg_roles|pg_stat_|information_schema)\b/i', $sqlTrim)) {
             return false;
         }
-        if ($rolId === 2 && preg_match('/\b(bitacoras_auditorias|sesiones_cajas|movimientos_cajas|fn_reporte_rentabilidad|fn_reporte_balance_medios_pago)\b/i', $sqlTrim)) {
+        if ($rolId === 2 && preg_match('/\b(bitacoras_auditorias|sesiones_cajas|movimientos_cajas|usuarios|roles|fn_reporte_rentabilidad|fn_reporte_balance_medios_pago)\b/i', $sqlTrim)) {
             return false;
         }
-        if ($rolId === 3 && preg_match('/\b(bitacoras_auditorias|sesiones_cajas|movimientos_cajas|notas_compras|detalles_compras|costo_unitario|margen_ganancia|fn_reporte_rentabilidad|fn_reporte_compras_distribuidor|fn_reporte_balance_medios_pago)\b/i', $sqlTrim)) {
+        if ($rolId === 3 && preg_match('/\b(bitacoras_auditorias|sesiones_cajas|movimientos_cajas|notas_compras|detalles_compras|proveedores|usuarios|costo_unitario|margen_ganancia|fn_reporte_rentabilidad|fn_reporte_compras_distribuidor|fn_reporte_balance_medios_pago)\b/i', $sqlTrim)) {
             return false;
         }
-        if ($rolId === 4 && preg_match('/\b(bitacoras_auditorias|detalles_compras|costo_unitario|margen_ganancia|fn_reporte_rentabilidad|fn_reporte_compras_distribuidor)\b/i', $sqlTrim)) {
+        if ($rolId === 4 && preg_match('/\b(bitacoras_auditorias|detalles_compras|usuarios|costo_unitario|margen_ganancia|fn_reporte_rentabilidad|fn_reporte_compras_distribuidor)\b/i', $sqlTrim)) {
             return false;
         }
-        if ($rolId === 5 && preg_match('/\b(bitacoras_auditorias|sesiones_cajas|movimientos_cajas|notas_compras|detalles_compras|notas_ventas|detalles_ventas|usuarios|clientes|proveedores|fn_reporte_)\b/i', $sqlTrim)) {
+        if ($rolId === 5 && preg_match('/\b(bitacoras_auditorias|sesiones_cajas|movimientos_cajas|notas_compras|detalles_compras|notas_ventas|detalles_ventas|usuarios|roles|clientes|proveedores|ajustes_inventario|cotizaciones|detalles_cotizaciones|fn_reporte_)\b/i', $sqlTrim)) {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Ejecuta una consulta SELECT/WITH validada bajo firewall estricto, modo solo lectura y timeout acotado.
+     */
+    public function ejecutarSqlSeguro(string $sql, int $rolId = 1): array
+    {
+        $sqlTrim = rtrim(trim($sql), "; \t\n\r\0\x0B");
+        if (!$this->esSqlSeguro($sqlTrim, $rolId)) {
+            Log::warning("AiSqlAssistantService: SQL bloqueado por firewall (rol {$rolId}): {$sqlTrim}");
+            throw new \RuntimeException('SQL_BLOQUEADO_SEGURIDAD');
+        }
+
+        $esAgregacionEscalar = preg_match('/\b(COUNT|SUM|AVG|MAX|MIN)\s*\(/i', $sqlTrim)
+            && !preg_match('/\bGROUP\s+BY\b/i', $sqlTrim);
+
+        $sqlFinal = $sqlTrim;
+        if (!$esAgregacionEscalar && !preg_match('/\bLIMIT\s+\d+\b/i', $sqlTrim)) {
+            $sqlFinal .= ' LIMIT 50';
+        }
+
+        $ejecutar = function () use ($sqlFinal): array {
+            DB::statement("SET LOCAL statement_timeout = '4000ms'");
+            $filas = DB::select($sqlFinal);
+            return array_map(fn($row) => (array) $row, array_slice($filas, 0, 50));
+        };
+
+        if (DB::transactionLevel() === 0) {
+            return DB::transaction(function () use ($ejecutar) {
+                DB::statement('SET LOCAL TRANSACTION READ ONLY');
+                return $ejecutar();
+            });
+        }
+
+        return $ejecutar();
     }
 
     private function construirSystemPrompt(): string
@@ -256,6 +294,7 @@ class AiSqlAssistantService
     private function procesarViaGemini(
         string $preguntaOriginal,
         string $preguntaLimpia,
+        string $norm,
         string $apiKey,
         int $rolId,
         string $nombreRol,
@@ -280,23 +319,21 @@ class AiSqlAssistantService
                 null,
                 $rolId,
                 $nombreRol,
-                $userId
+                $userId,
+                $preguntaOriginal,
+                $preguntaLimpia,
+                $norm
             );
         }
 
         if ($respGemini['tipo'] === 'sql') {
             $sql = (string) $respGemini['sql'];
-            if (!$this->esSqlSeguro($sql, $rolId)) {
-                Log::warning('AiSqlAssistantService: SQL bloqueado por auditor de seguridad: ' . $sql);
-                return null;
-            }
             try {
-                $filas = DB::select($sql);
-                $datosArray = array_map(fn($row) => (array) $row, array_slice($filas, 0, 15));
+                $datosArray = $this->ejecutarSqlSeguro($sql, $rolId);
                 $textoPantalla = $this->text->formatearRespuestaAmigable($respGemini['explicacion'], $datosArray);
-                return $this->text->respuestaConDatos($textoPantalla, $datosArray, 'gemini');
+                return $this->text->respuestaConDatos($textoPantalla, array_slice($datosArray, 0, 15), 'gemini');
             } catch (\Throwable $e) {
-                Log::warning('AiSqlAssistantService: Error ejecutando SQL de Gemini: ' . $e->getMessage());
+                Log::warning('AiSqlAssistantService: Error o bloqueo en Text-to-SQL Gemini: ' . $e->getMessage());
                 return null;
             }
         }
@@ -332,8 +369,8 @@ class AiSqlAssistantService
             if (preg_match('/\b(rol|roles|perfiles|permisos)\b/', $norm)) {
                 return $this->intencionRoles();
             }
-            if (preg_match('/\b(usuarios|empleados|personal|vendedores|cajeros|bodegueros|cuentas del sistema)\b/', $norm)) {
-                return $this->intencionUsuarios($rolId, $nombreRol);
+            if (preg_match('/\b(administrador|administradores|admin|admins|usuario|usuarios|empleado|empleados|personal|vendedor|vendedores|cajero|cajeros|bodeguero|bodegueros|cuentas del sistema)\b/', $norm)) {
+                return $this->intencionUsuarios($rolId, $nombreRol, $norm);
             }
             if (preg_match('/\b(categoria|categorias|rubros|familias de repuestos)\b/', $norm)) {
                 return $this->intencionCategorias();
@@ -341,10 +378,10 @@ class AiSqlAssistantService
             if (preg_match('/\b(auditoria|bitacora|registro de acciones|quien hizo)\b/', $norm)) {
                 return $this->intencionAuditoria($rolId, $nombreRol);
             }
-            if (preg_match('/\b(ajustes|mermas|salidas internas|historial de ajustes)\b/', $norm)) {
-                return $this->intencionHistorialAjustes();
+            if (preg_match('/\b(ajustes|ajuste|mermas|merma|salidas internas|historial de ajustes)\b/', $norm)) {
+                return $this->intencionHistorialAjustes($norm);
             }
-            if (preg_match('/\b(resumen general|resumen del negocio|como esta el negocio|cuantos repuestos tenemos|estadisticas generales)\b/', $norm)) {
+            if (preg_match('/\b(resumen general|resumen del negocio|como esta el negocio|estadisticas generales)\b/', $norm)) {
                 return $this->intencionResumenNegocio();
             }
             if (preg_match('/\b(rotacion|hueso|baja salida|sin movimiento|mas vendido|mas vendidos|menos vendido|desplazamiento)\b/', $norm)) {
@@ -359,7 +396,7 @@ class AiSqlAssistantService
             if (preg_match('/\b(balance.*pago|medios de pago|metodos de pago|desglose.*pago|recaudacion por canal|por metodo)\b/', $norm)) {
                 return $this->intencionBalanceMediosPago();
             }
-            if (preg_match('/\b(stock critico|stock bajo|bajo minimo|alerta.*stock|agotado|reabastecer|faltante.*stock|pocas unidades|por acabarse)\b/', $norm)) {
+            if (preg_match('/\b(stock critico|stock bajo|bajo minimo|alerta.*stock|agotado|agotados|reabastecer|faltante.*stock|pocas unidades|por acabarse)\b/', $norm)) {
                 return $this->intencionStockCritico();
             }
             if (preg_match('/\b(cuentas por pagar|deuda|pendiente.*pago|credito.*proveedor|compras a credito|por pagar|debemos)\b/', $norm)) {
@@ -368,8 +405,13 @@ class AiSqlAssistantService
             if (preg_match('/\b(proveedor|proveedores|distribuidor|distribuidores|importadora|importadoras)\b/', $norm)) {
                 return $this->intencionProveedores();
             }
+            if (preg_match('/\b(compra|compras|compramos|facturas de compra)\b/', $norm)
+                && preg_match('/\b(cuanto|cuantos|cuantas|cantidad|numero|total|lista|quienes|cuales|muestrame|hoy|ayer|mes)\b/', $norm)
+            ) {
+                return $this->intencionComprasResumen($norm);
+            }
             if (preg_match('/\b(venta|ventas|vendio|vendimos|vendido|recaudado|ingresos de hoy|caja|efectivo|transferencia|qr|tarjeta|arqueo)\b/', $norm)) {
-                return $this->intencionVentasYCaja($rolId);
+                return $this->intencionVentasYCaja($rolId, $norm);
             }
             if (preg_match('/\b(cotizacion|cotizaciones|proforma|proformas|vigente|vencida)\b/', $norm)) {
                 return $this->intencionCotizaciones($norm);
@@ -377,8 +419,13 @@ class AiSqlAssistantService
             if (preg_match('/\b(cliente|clientes|taller|talleres|mecanico|flota|descuento frecuente)\b/', $norm)) {
                 return $this->intencionClientes($norm);
             }
-            if (preg_match('/\b(que vehiculos|que marcas|lista de vehiculos|catalogo vehicular)\b/', $norm)) {
+            if (preg_match('/\b(que vehiculos|que marcas|cuantos vehiculos|cuantas marcas|cuantos autos|cantidad de vehiculos|lista de vehiculos|catalogo vehicular)\b/', $norm)) {
                 return $this->intencionVehiculos();
+            }
+            if (preg_match('/\b(cuantos|cuantas|cantidad|total|numero|lista|cuales|muestrame)\b.*\b(producto|productos|repuesto|repuestos|articulo|articulos|item|items|pieza|piezas|inventario|catalogo|stock)\b/', $norm)
+                || preg_match('/\b(producto|productos|repuesto|repuestos|articulo|articulos|item|items)\b.*\b(tenemos|hay|existen|registrados|activos)\b/', $norm)
+            ) {
+                return $this->intencionConteoOListadoProductos();
             }
             if (preg_match('/\b(compatible|compatibilidad|le hace|sirve para|toyota|nissan|suzuki|mitsubishi|hyundai|kia|mazda|honda|isuzu|corolla|hilux|vitara|sentra|frontier|tucson|sportage|l200|rav4|yaris|swift|rio|accent|crv|bt50|dmax)\b/', $norm)) {
                 return $this->intencionCompatibilidadVehicular($norm);
@@ -430,12 +477,29 @@ class AiSqlAssistantService
         return $this->text->respuestaConDatos($texto, $roles);
     }
 
-    private function intencionUsuarios(int $rolId, string $nombreRol): array
+    private function intencionUsuarios(int $rolId, string $nombreRol, string $norm = ''): array
     {
         if ($rolId !== 1) {
             return $this->text->respuestaRestriccion("Disculpa, el listado completo de usuarios del sistema solo puede consultarlo el Administrador (tu perfil actual es {$nombreRol}).");
         }
-        $usuarios = DB::table('usuarios as u')
+
+        $rolFiltro = null;
+        $etiquetaRol = null;
+        if (preg_match('/\b(administrador|administradores|admin|admins)\b/', $norm)) {
+            $rolFiltro = 'Administrador';
+            $etiquetaRol = 'administradores';
+        } elseif (preg_match('/\b(bodeguero|bodegueros)\b/', $norm)) {
+            $rolFiltro = 'Bodeguero';
+            $etiquetaRol = 'bodegueros';
+        } elseif (preg_match('/\b(vendedor|vendedores)\b/', $norm)) {
+            $rolFiltro = 'Vendedor';
+            $etiquetaRol = 'vendedores';
+        } elseif (preg_match('/\b(cajero|cajeros)\b/', $norm)) {
+            $rolFiltro = 'Cajero';
+            $etiquetaRol = 'cajeros';
+        }
+
+        $query = DB::table('usuarios as u')
             ->join('roles as r', 'r.id_rol', '=', 'u.id_rol')
             ->select([
                 'u.nombre_completo as Nombre',
@@ -444,14 +508,57 @@ class AiSqlAssistantService
                 'u.telefono as Telefono',
                 DB::raw("CASE WHEN u.estado THEN 'Activo' ELSE 'Inactivo' END as \"Estado\""),
             ])
-            ->orderBy('u.id_usuario')
-            ->limit(15)
+            ->orderBy('u.id_usuario');
+
+        if ($rolFiltro !== null) {
+            $query->where('r.nombre_rol', $rolFiltro);
+        }
+
+        $usuarios = $query->limit(25)->get()->map(fn($r) => (array) $r)->toArray();
+        $activos = count(array_filter($usuarios, fn($u) => $u['Estado'] === 'Activo'));
+
+        if ($rolFiltro !== null) {
+            $nombres = implode(', ', array_column($usuarios, 'Nombre'));
+            $texto = count($usuarios) > 0
+                ? 'Tenemos ' . count($usuarios) . " {$etiquetaRol} registrados ({$activos} activos): {$nombres}."
+                : "Por ahora no tenemos usuarios registrados con el rol {$rolFiltro}.";
+            return $this->text->respuestaConDatos($texto, $usuarios);
+        }
+
+        return $this->text->respuestaConDatos('Actualmente hay ' . count($usuarios) . " usuarios registrados en la plataforma ({$activos} activos). Aquí tienes el detalle por rol:", $usuarios);
+    }
+
+    private function intencionConteoOListadoProductos(): array
+    {
+        $resumen = DB::table('productos')
+            ->where('estado', true)
+            ->selectRaw('COUNT(*) as total_activos, COALESCE(SUM(stock_actual), 0) as unidades_totales')
+            ->selectRaw('SUM(CASE WHEN stock_actual > 0 THEN 1 ELSE 0 END) as con_stock')
+            ->selectRaw('SUM(CASE WHEN stock_actual > 0 AND stock_actual <= stock_minimo THEN 1 ELSE 0 END) as stock_bajo')
+            ->selectRaw('SUM(CASE WHEN stock_actual = 0 THEN 1 ELSE 0 END) as agotados')
+            ->first();
+
+        $total = (int) ($resumen->total_activos ?? 0);
+        $unidades = (int) ($resumen->unidades_totales ?? 0);
+        $conStock = (int) ($resumen->con_stock ?? 0);
+        $bajo = (int) ($resumen->stock_bajo ?? 0);
+        $agotados = (int) ($resumen->agotados ?? 0);
+
+        $porCategoria = DB::table('categorias as c')
+            ->leftJoin('productos as p', fn($j) => $j->on('p.id_categoria', '=', 'c.id_categoria')->where('p.estado', true))
+            ->select([
+                'c.nombre as Categoria',
+                DB::raw('COUNT(p.id_producto) as "Productos"'),
+                DB::raw('COALESCE(SUM(p.stock_actual), 0) as "Unidades"'),
+            ])
+            ->groupBy('c.id_categoria', 'c.nombre')
+            ->orderByDesc(DB::raw('COUNT(p.id_producto)'))
             ->get()
             ->map(fn($r) => (array) $r)
             ->toArray();
 
-        $activos = count(array_filter($usuarios, fn($u) => $u['Estado'] === 'Activo'));
-        return $this->text->respuestaConDatos('Actualmente hay ' . count($usuarios) . " usuarios registrados en la plataforma ({$activos} activos). Aquí tienes el detalle por rol:", $usuarios);
+        $texto = "Tenemos {$total} productos activos en el catálogo (sumando " . number_format($unidades) . " unidades físicas en almacén): {$conStock} disponibles para venta, {$bajo} con stock bajo mínimo y {$agotados} agotados.";
+        return $this->text->respuestaConDatos($texto, $porCategoria);
     }
 
     private function intencionCategorias(): array
@@ -490,6 +597,10 @@ class AiSqlAssistantService
 
     private function intencionVehiculos(): array
     {
+        $totales = DB::table('vehiculos')
+            ->selectRaw('COUNT(*) as total_modelos, COUNT(DISTINCT marca) as total_marcas')
+            ->first();
+
         $vehs = DB::table('vehiculos as v')
             ->leftJoin('compatibilidades as c', 'c.id_vehiculo', '=', 'v.id_vehiculo')
             ->select([
@@ -507,12 +618,14 @@ class AiSqlAssistantService
             ->map(fn($r) => (array) $r)
             ->toArray();
 
-        return $this->text->respuestaConDatos('En el catálogo vehicular tenemos ' . count($vehs) . ' modelos registrados (entre marcas japonesas y coreanas):', $vehs);
+        $totalModelos = (int) ($totales->total_modelos ?? count($vehs));
+        $totalMarcas = (int) ($totales->total_marcas ?? 0);
+        return $this->text->respuestaConDatos("En el catálogo vehicular tenemos {$totalModelos} modelos registrados de {$totalMarcas} marcas distintas:", $vehs);
     }
 
-    private function intencionHistorialAjustes(): array
+    private function intencionHistorialAjustes(string $norm = ''): array
     {
-        $ajustes = DB::table('ajustes_inventario as a')
+        $query = DB::table('ajustes_inventario as a')
             ->join('productos as p', 'p.id_producto', '=', 'a.id_producto')
             ->join('usuarios as u', 'u.id_usuario', '=', 'a.id_usuario')
             ->select([
@@ -522,16 +635,26 @@ class AiSqlAssistantService
                 'a.cantidad_ajustada as Cantidad',
                 'a.motivo as Motivo',
                 'u.nombre_completo as Responsable',
-            ])
-            ->orderByDesc('a.id_ajuste')
+            ]);
+
+        if (str_contains($norm, 'hoy')) {
+            $query->whereDate('a.fecha_ajuste', Carbon::today()->toDateString());
+        } elseif (str_contains($norm, 'ayer')) {
+            $query->whereDate('a.fecha_ajuste', Carbon::yesterday()->toDateString());
+        } elseif (str_contains($norm, 'este mes')) {
+            $query->whereMonth('a.fecha_ajuste', Carbon::now()->month)->whereYear('a.fecha_ajuste', Carbon::now()->year);
+        }
+
+        $total = (clone $query)->count();
+        $ajustes = $query->orderByDesc('a.id_ajuste')
             ->limit(10)
             ->get()
             ->map(fn($r) => (array) $r)
             ->toArray();
 
         $texto = empty($ajustes)
-            ? 'Todavía no se han registrado ajustes o mermas en almacén.'
-            : 'Aquí tienes los últimos ' . count($ajustes) . ' ajustes y mermas registrados en almacén:';
+            ? 'Todavía no se han registrado ajustes o mermas en ese período.'
+            : "Tenemos {$total} ajuste(s) o merma(s) registrados en almacén. Aquí tienes los más recientes:";
         return $this->text->respuestaConDatos($texto, $ajustes);
     }
 
@@ -735,17 +858,59 @@ class AiSqlAssistantService
         return $this->text->respuestaConDatos($texto, $deudas);
     }
 
-    private function intencionVentasYCaja(int $rolId): array
+    private function intencionComprasResumen(string $norm = ''): array
     {
-        $hoy = date('Y-m-d');
+        $query = DB::table('notas_compras as nc')
+            ->join('proveedores as pr', 'pr.id_proveedor', '=', 'nc.id_proveedor')
+            ->where('nc.estado_pago', '<>', 'Anulado');
+
+        $periodo = 'acumulado general';
+        if (str_contains($norm, 'hoy')) {
+            $query->whereDate('nc.fecha_compra', Carbon::today()->toDateString());
+            $periodo = 'hoy';
+        } elseif (str_contains($norm, 'ayer')) {
+            $query->whereDate('nc.fecha_compra', Carbon::yesterday()->toDateString());
+            $periodo = 'ayer';
+        } elseif (str_contains($norm, 'este mes')) {
+            $query->whereMonth('nc.fecha_compra', Carbon::now()->month)->whereYear('nc.fecha_compra', Carbon::now()->year);
+            $periodo = 'este mes';
+        }
+
+        $cant = (int) (clone $query)->count();
+        $total = (float) (clone $query)->sum('nc.monto_total');
+
+        $filas = (clone $query)
+            ->select(['nc.numero_factura_nota as Factura', 'pr.razon_social as Proveedor', 'nc.fecha_compra as Fecha', 'nc.tipo_pago as Tipo', 'nc.estado_pago as Estado', 'nc.monto_total as Total_Bs'])
+            ->orderByDesc('nc.id_compra')
+            ->limit(10)
+            ->get()
+            ->map(fn($r) => (array) $r)
+            ->toArray();
+
+        $texto = $cant > 0
+            ? "En {$periodo} tenemos {$cant} compra(s) registradas por Bs. " . number_format($total, 2) . '.'
+            : "No encontramos compras registradas para {$periodo}.";
+        return $this->text->respuestaConDatos($texto, $filas);
+    }
+
+    private function intencionVentasYCaja(int $rolId, string $norm = ''): array
+    {
+        $hoy = Carbon::today()->toDateString();
+        $ayer = Carbon::yesterday()->toDateString();
         $cantHoy = (int) DB::table('notas_ventas')->where('estado', 'Completada')->whereDate('fecha_hora', $hoy)->count();
         $totalHoy = (float) DB::table('notas_ventas')->where('estado', 'Completada')->whereDate('fecha_hora', $hoy)->sum('total_venta');
+        $cantAyer = (int) DB::table('notas_ventas')->where('estado', 'Completada')->whereDate('fecha_hora', $ayer)->count();
+        $totalAyer = (float) DB::table('notas_ventas')->where('estado', 'Completada')->whereDate('fecha_hora', $ayer)->sum('total_venta');
+        $cantMes = (int) DB::table('notas_ventas')->where('estado', 'Completada')->whereMonth('fecha_hora', Carbon::now()->month)->whereYear('fecha_hora', Carbon::now()->year)->count();
+        $totalMes = (float) DB::table('notas_ventas')->where('estado', 'Completada')->whereMonth('fecha_hora', Carbon::now()->month)->whereYear('fecha_hora', Carbon::now()->year)->sum('total_venta');
         $cantGlobal = (int) DB::table('notas_ventas')->where('estado', 'Completada')->count();
         $totalGlobal = (float) DB::table('notas_ventas')->where('estado', 'Completada')->sum('total_venta');
 
         $desglose = DB::table('notas_ventas')
             ->where('estado', 'Completada')
-            ->when($cantHoy > 0, fn($q) => $q->whereDate('fecha_hora', $hoy))
+            ->when(str_contains($norm, 'ayer'), fn($q) => $q->whereDate('fecha_hora', $ayer))
+            ->when(!str_contains($norm, 'ayer') && $cantHoy > 0 && !str_contains($norm, 'este mes'), fn($q) => $q->whereDate('fecha_hora', $hoy))
+            ->when(str_contains($norm, 'este mes'), fn($q) => $q->whereMonth('fecha_hora', Carbon::now()->month)->whereYear('fecha_hora', Carbon::now()->year))
             ->select(['metodo_pago as Forma_Pago', DB::raw('COUNT(id_venta) as "Ventas"'), DB::raw('ROUND(SUM(total_venta), 2) as "Total_Bs"')])
             ->groupBy('metodo_pago')
             ->orderByRaw('SUM(total_venta) DESC')
@@ -766,9 +931,15 @@ class AiSqlAssistantService
                 : ' Ojo, todavía no abrimos la caja de hoy.';
         }
 
-        $texto = $cantHoy > 0
-            ? "Hoy llevamos {$cantHoy} venta(s) por Bs. " . number_format($totalHoy, 2) . " (acumulado general: {$cantGlobal} ventas por Bs. " . number_format($totalGlobal, 2) . ").{$infoCaja}"
-            : "Hoy todavía no registramos ventas. En el acumulado general van {$cantGlobal} ventas por Bs. " . number_format($totalGlobal, 2) . ".{$infoCaja}";
+        if (str_contains($norm, 'ayer')) {
+            $texto = "Ayer cerramos {$cantAyer} venta(s) por Bs. " . number_format($totalAyer, 2) . ".{$infoCaja}";
+        } elseif (str_contains($norm, 'este mes')) {
+            $texto = "En lo que va de este mes llevamos {$cantMes} venta(s) por Bs. " . number_format($totalMes, 2) . ".{$infoCaja}";
+        } else {
+            $texto = $cantHoy > 0
+                ? "Hoy llevamos {$cantHoy} venta(s) por Bs. " . number_format($totalHoy, 2) . " (acumulado general: {$cantGlobal} ventas por Bs. " . number_format($totalGlobal, 2) . ").{$infoCaja}"
+                : "Hoy todavía no registramos ventas. En el acumulado general van {$cantGlobal} ventas por Bs. " . number_format($totalGlobal, 2) . ".{$infoCaja}";
+        }
 
         return $this->text->respuestaConDatos($texto, $desglose);
     }
@@ -783,22 +954,39 @@ class AiSqlAssistantService
             $query->where('cot.estado', 'Vencida');
         } elseif (str_contains($norm, 'vigente')) {
             $query->where('cot.estado', 'Vigente')->whereDate('cot.fecha_vencimiento', '>=', date('Y-m-d'));
+        } elseif (str_contains($norm, 'hoy')) {
+            $query->whereDate('cot.fecha_emision', Carbon::today()->toDateString());
+        } elseif (str_contains($norm, 'este mes')) {
+            $query->whereMonth('cot.fecha_emision', Carbon::now()->month)->whereYear('cot.fecha_emision', Carbon::now()->year);
         }
 
+        $total = (clone $query)->count();
         $filas = $query->orderByDesc('cot.id_cotizacion')->limit(10)->get()->map(fn($r) => (array) $r)->toArray();
-        return $this->text->respuestaConDatos('Encontré ' . count($filas) . ' cotizaciones registradas:', $filas);
+        return $this->text->respuestaConDatos("Tenemos {$total} cotizaciones registradas con ese criterio:", $filas);
     }
 
     private function intencionClientes(string $norm): array
     {
+        $totales = DB::table('clientes')
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN tipo_cliente = 'Particular' THEN 1 ELSE 0 END) as particulares")
+            ->selectRaw("SUM(CASE WHEN tipo_cliente = 'Taller/Mecánico' THEN 1 ELSE 0 END) as talleres")
+            ->selectRaw("SUM(CASE WHEN tipo_cliente = 'Empresa/Flota' THEN 1 ELSE 0 END) as empresas")
+            ->first();
+
         $query = DB::table('clientes')->select(['nombre_razon_social as Cliente', 'ci_nit as CI_NIT', 'tipo_cliente as Tipo', 'telefono as Telefono', 'descuento_frecuente as Descuento_Pct']);
         if (str_contains($norm, 'taller') || str_contains($norm, 'mecanico')) {
             $query->where('tipo_cliente', 'Taller/Mecánico');
         } elseif (str_contains($norm, 'empresa') || str_contains($norm, 'flota')) {
             $query->where('tipo_cliente', 'Empresa/Flota');
         }
-        $clientes = $query->orderByDesc('descuento_frecuente')->orderBy('nombre_razon_social')->limit(12)->get()->map(fn($r) => (array) $r)->toArray();
-        return $this->text->respuestaConDatos('Aquí tienes ' . count($clientes) . ' clientes registrados en tu cartera:', $clientes);
+        $clientes = $query->orderByDesc('descuento_frecuente')->orderBy('nombre_razon_social')->limit(14)->get()->map(fn($r) => (array) $r)->toArray();
+
+        $texto = 'Tenemos ' . (int) ($totales->total ?? count($clientes)) . ' clientes registrados en total ('
+            . (int) ($totales->particulares ?? 0) . ' particulares, '
+            . (int) ($totales->talleres ?? 0) . ' talleres mecánicos y '
+            . (int) ($totales->empresas ?? 0) . ' empresas/flotas):';
+        return $this->text->respuestaConDatos($texto, $clientes);
     }
 
     private function intencionCompatibilidadVehicular(string $norm): array

@@ -3,21 +3,30 @@
 namespace App\Services\Ai;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Cliente HTTP para Google Gemini (gemini-2.5-flash con respaldo gemini-2.0-flash),
- * systemInstruction con esquema completo de las 19 tablas y function declarations (CU39).
+ * Cliente HTTP para Google Gemini con cascada automática de modelos vigentes,
+ * diagnóstico claro en logs, function declarations multi-slot y Text-to-SQL (CU39).
  */
 class AiGeminiClient
 {
+    private const MODELOS_RETIRADOS = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-2.5-flash-lite',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+    ];
+
     public function __construct(
         private readonly AiTextNormalizer $text
     ) {}
 
     /**
-     * Consulta la API de Gemini con historial multi-turno y herramientas transaccionales.
+     * Consulta la API de Gemini con historial multi-turno y herramientas transaccionales / Text-to-SQL.
      * Retorna una estructura tipada ('function_call' | 'sql' | 'texto') o null para activar respaldo local.
      */
     public function solicitarRespuesta(
@@ -27,10 +36,16 @@ class AiGeminiClient
         string $nombreRol,
         array $historial
     ): ?array {
-        $modelos = array_values(array_unique(array_filter([
-            config('services.gemini.model', 'gemini-2.5-flash'),
-            config('services.gemini.fallback_model', 'gemini-2.0-flash'),
-        ])));
+        if (trim($apiKey) === '') {
+            Log::warning('AiGeminiClient: GEMINI_API_KEY no configurada; usando respaldo local.');
+            return null;
+        }
+
+        $modelos = $this->resolverListaModelosCandidatos();
+        if (empty($modelos)) {
+            Log::warning('AiGeminiClient: Todos los modelos Gemini candidatos están temporalmente omitidos en caché (404); usando respaldo local.');
+            return null;
+        }
 
         $body = [
             'system_instruction' => [
@@ -41,8 +56,8 @@ class AiGeminiClient
             ],
             'contents' => $this->construirContentsMultiTurno($preguntaOriginal, $preguntaLimpia, $nombreRol, $historial),
             'generationConfig' => [
-                'temperature'     => 0.25,
-                'maxOutputTokens' => 800,
+                'temperature'     => 0.2,
+                'maxOutputTokens' => 1024,
             ],
         ];
 
@@ -50,7 +65,7 @@ class AiGeminiClient
         foreach ($modelos as $modelo) {
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent";
             try {
-                $response = Http::timeout(6.5)
+                $response = Http::timeout(10)
                     ->withHeaders([
                         'x-goog-api-key' => $apiKey,
                         'Content-Type'   => 'application/json',
@@ -61,7 +76,22 @@ class AiGeminiClient
                     $responseJson = $response->json();
                     break;
                 }
-                Log::warning("AiGeminiClient: Gemini modelo {$modelo} devolvió HTTP {$response->status()}: " . mb_substr((string) $response->body(), 0, 220));
+
+                $status = $response->status();
+                $errMsg = (string) ($response->json('error.message') ?? preg_replace('/\s+/', ' ', mb_substr((string) $response->body(), 0, 260)));
+                Log::warning("AiGeminiClient: modelo {$modelo} devolvió HTTP {$status}: {$errMsg}");
+
+                if ($status === 404) {
+                    Cache::put("ai_gemini_404_{$modelo}", true, 3600);
+                    continue;
+                }
+
+                if ($status === 401 || $status === 403) {
+                    Log::warning("AiGeminiClient: clave Gemini inválida o sin permisos (HTTP {$status}). Revisa GEMINI_API_KEY.");
+                    break;
+                }
+
+                // 429 (cuota) o 5xx (sobrecarga): probar siguiente modelo de respaldo
             } catch (\Throwable $e) {
                 Log::warning("AiGeminiClient: Excepción de conexión con Gemini {$modelo}: " . $e->getMessage());
             }
@@ -76,13 +106,28 @@ class AiGeminiClient
             return null;
         }
 
-        // 1. Function Call -> será validado por la máquina de estados local
+        // 1. Function Call -> Text-to-SQL directo o máquina de estados transaccional
         foreach ($parts as $part) {
             if (isset($part['functionCall']['name'])) {
+                $fnName = (string) $part['functionCall']['name'];
+                $args = is_array($part['functionCall']['args'] ?? null) ? $part['functionCall']['args'] : [];
+
+                if ($fnName === 'consultar_base_datos') {
+                    $sql = rtrim(trim((string) ($args['sql'] ?? '')), "; \t\n\r\0\x0B");
+                    if ($sql !== '') {
+                        return [
+                            'tipo'        => 'sql',
+                            'sql'         => $sql,
+                            'explicacion' => (string) ($args['explicacion'] ?? 'Aquí tienes lo que encontré:'),
+                        ];
+                    }
+                    return null;
+                }
+
                 return [
                     'tipo' => 'function_call',
-                    'name' => (string) $part['functionCall']['name'],
-                    'args' => is_array($part['functionCall']['args'] ?? null) ? $part['functionCall']['args'] : [],
+                    'name' => $fnName,
+                    'args' => $args,
                 ];
             }
         }
@@ -98,7 +143,7 @@ class AiGeminiClient
             return null;
         }
 
-        // 2. Consulta analítica SQL read-only
+        // 2. Consulta analítica SQL read-only en formato JSON
         $parsed = $this->text->extraerJsonDeRespuesta($rawText);
         if (is_array($parsed) && !empty($parsed['sql'])) {
             return [
@@ -123,6 +168,38 @@ class AiGeminiClient
         }
 
         return null;
+    }
+
+    private function resolverListaModelosCandidatos(): array
+    {
+        $configured = trim((string) config('services.gemini.model', 'gemini-3.5-flash'));
+        $fallbackConfigured = trim((string) config('services.gemini.fallback_model', 'gemini-3.5-flash-lite'));
+        $fallbacks = config('services.gemini.fallback_models', [
+            'gemini-3.5-flash',
+            'gemini-3.5-flash-lite',
+            'gemini-flash-latest',
+            'gemini-3.8-flash',
+        ]);
+        if (!is_array($fallbacks)) {
+            $fallbacks = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+        }
+
+        $lista = in_array($configured, self::MODELOS_RETIRADOS, true)
+            ? array_merge($fallbacks, [$fallbackConfigured])
+            : array_merge([$configured, $fallbackConfigured], $fallbacks);
+
+        $unicos = array_values(array_unique(array_filter($lista, fn($m) => is_string($m) && trim($m) !== '')));
+        $activos = [];
+        foreach ($unicos as $modelo) {
+            if (in_array($modelo, self::MODELOS_RETIRADOS, true)) {
+                continue;
+            }
+            if (!Cache::get("ai_gemini_404_{$modelo}")) {
+                $activos[] = $modelo;
+            }
+        }
+
+        return $activos;
     }
 
     public function construirContentsMultiTurno(
@@ -153,13 +230,25 @@ class AiGeminiClient
     {
         return [
             [
-                'name'        => 'preparar_venta',
-                'description' => 'Inicia o actualiza el registro de una venta en mostrador. Invócala incluso con datos parciales para que el flujo pregunte lo faltante paso a paso.',
+                'name'        => 'consultar_base_datos',
+                'description' => 'Ejecuta una consulta PostgreSQL de solo lectura (SELECT o WITH) sobre las 19 tablas de Multipartes El Tuerca para responder cualquier pregunta de conteo, listado, totales, saldos, compatibilidad o búsqueda.',
                 'parameters'  => [
                     'type'       => 'OBJECT',
                     'properties' => [
-                        'cliente'         => ['type' => 'STRING', 'description' => 'Nombre del cliente/taller solo si el usuario lo mencionó'],
-                        'items'           => [
+                        'sql'         => ['type' => 'STRING', 'description' => 'Consulta SQL SELECT o WITH válida para PostgreSQL 16, usando ILIKE, sin punto y coma final y jamás leyendo password_hash'],
+                        'explicacion' => ['type' => 'STRING', 'description' => 'Frase breve y natural en español explicando lo encontrado (sin tecnicismos ni SQL)'],
+                    ],
+                    'required' => ['sql', 'explicacion'],
+                ],
+            ],
+            [
+                'name'        => 'preparar_venta',
+                'description' => 'Inicia o actualiza el registro de una venta en mostrador extrayendo TODOS los datos presentes en la frase del usuario desde el primer mensaje.',
+                'parameters'  => [
+                    'type'       => 'OBJECT',
+                    'properties' => [
+                        'cliente'              => ['type' => 'STRING', 'description' => 'Nombre exacto del cliente o taller tal como lo dijo el usuario (incluyendo nombres nuevos que aún no estén en BD)'],
+                        'items'                => [
                             'type'  => 'ARRAY',
                             'items' => [
                                 'type'       => 'OBJECT',
@@ -170,20 +259,26 @@ class AiGeminiClient
                                 'required' => ['producto'],
                             ],
                         ],
-                        'descuento_total' => ['type' => 'NUMBER', 'description' => 'Solo si el usuario pidió un descuento explícito en Bs.'],
-                        'metodo_pago'     => ['type' => 'STRING', 'description' => 'Solo si el usuario lo mencionó: Efectivo, Transferencia/QR, Tarjeta Débito/Crédito o Mixto'],
+                        'descuento_total'      => ['type' => 'NUMBER', 'description' => 'Monto fijo de descuento en Bs. si el usuario lo dio en dinero'],
+                        'descuento_porcentaje' => ['type' => 'NUMBER', 'description' => 'Porcentaje de descuento (0 a 50) si el usuario dijo por ejemplo "descuento del 10%"'],
+                        'sin_descuento'        => ['type' => 'BOOLEAN', 'description' => 'True si el usuario aclaró sin descuento o precio normal'],
+                        'metodo_pago'          => ['type' => 'STRING', 'description' => 'Solo si el usuario lo mencionó: Efectivo, Transferencia/QR, Tarjeta Débito/Crédito o Mixto'],
+                        'monto_recibido'       => ['type' => 'NUMBER', 'description' => 'Con cuánto pagó el cliente si pagó en efectivo'],
+                        'nro_referencia'       => ['type' => 'STRING', 'description' => 'Número de referencia o comprobante si pagó por QR/tarjeta'],
+                        'sin_mas_productos'    => ['type' => 'BOOLEAN', 'description' => 'True si dijo "y nada más", "solo eso" o "eso es todo"'],
                     ],
                 ],
             ],
             [
                 'name'        => 'preparar_cotizacion',
-                'description' => 'Inicia o actualiza una cotización o proforma comercial.',
+                'description' => 'Inicia o actualiza una cotización o proforma comercial con todos los datos presentes en el mensaje.',
                 'parameters'  => [
                     'type'       => 'OBJECT',
                     'properties' => [
-                        'cliente'       => ['type' => 'STRING'],
-                        'dias_vigencia' => ['type' => 'INTEGER'],
-                        'items'         => [
+                        'cliente'           => ['type' => 'STRING'],
+                        'dias_vigencia'     => ['type' => 'INTEGER'],
+                        'sin_mas_productos' => ['type' => 'BOOLEAN'],
+                        'items'             => [
                             'type'  => 'ARRAY',
                             'items' => [
                                 'type'       => 'OBJECT',
@@ -263,28 +358,29 @@ La moneda oficial es Bolivianos (Bs.).
 
 PROHIBIDO USAR TECNICISMOS: Nunca menciones SQL, PostgreSQL, tablas, columnas, JSON, arrays, IDs internos, constraints, triggers ni códigos de error.
 
-MAPA FUNCIONAL COMPLETO DE LA WEB "MULTIPARTES EL TUERCA":
-- Panel Principal (Dashboard): muestra resumen ejecutivo y permite exportar catálogo activo a PDF y Excel.
-- Seguridad y Acceso (solo Administrador):
-  * Usuarios (/usuarios): alta, edición y activación/desactivación de empleados.
-  * Roles (/roles): 5 perfiles oficiales — Administrador (control total), Bodeguero (catálogo, almacén, alertas, ajustes, proveedores, compras, rotación y compras por distribuidor), Vendedor (clientes, cotizaciones, ventas/POS y consulta de catálogo), Cajero (apertura/cierre/arqueo de caja, ventas/POS, cotizaciones, cuentas por pagar y balance por medios de pago) y Cliente Web (vitrina pública, carrito en línea, sus cotizaciones y descarga PDF de sus comprobantes).
-  * Bitácora de Auditoría (/auditoria): historial de todas las acciones importantes.
-- Catálogo y Compatibilidad: Productos/Repuestos (/productos, con OEM, códigos alternativos, precio sugerido, stock y pasillo/estante/gaveta), Categorías (/categorias) y Catálogo Vehicular (/vehiculos).
-- Almacén e Inventario: Alertas de Stock Crítico (/inventario/alertas) y Ajustes/Mermas/Uso Interno (/inventario/ajustes).
-- Compras y Proveedores: Proveedores (/proveedores), Recepción de Compras (/compras), Cuentas por Pagar a Crédito (/compras/cuentas/por-pagar) e Historial de Costos (/compras/historial/costos).
-- Gestión Comercial y POS: Clientes y Talleres (/clientes), Cotizaciones/Proformas (/cotizaciones, con conversión directa a venta), Terminal POS (/ventas/pos) e Historial de Ventas (/ventas) con Ticket Térmico 80mm y PDF descargable.
-- Tesorería y Caja (/caja): apertura de turno con fondo inicial, ingresos extra / retiros menores, y cierre con arqueo físico de billetes y monedas.
-- Reportes Analíticos con gráficos interactivos y exportación PDF/Excel: Rotación de Repuestos (/reportes/rotacion), Rentabilidad y Márgenes (/reportes/rentabilidad), Compras por Distribuidor (/reportes/compras-distribuidor) y Balance por Medios de Pago (/reportes/balance-medios-pago). Todos los listados del sistema tienen botones Exportar PDF y Exportar Excel arriba a la derecha.
+REGLAS DE ORO PARA RESPONDER:
+1) CONSULTAS SOBRE DATOS DEL NEGOCIO (conteos, cantidades, listados, usuarios por rol, productos, categorías, vehículos, clientes, proveedores, ventas, compras, caja, auditoría, reportes):
+   - SIEMPRE invoca la función `consultar_base_datos` con una sentencia PostgreSQL 16 `SELECT` o `WITH` válida (sin `;` final, usando `ILIKE` y límite máximo de 50 filas si no es agregación escalar).
+   - Nunca inventes conteos ni nombres: consúltalos siempre desde la BD.
+2) OPERACIONES COMERCIALES (venta, cotización, compra, ajuste/merma o registrar cliente nuevo):
+   - INVOCA la función declarada correspondiente extrayendo TODOS los datos presentes en la frase del usuario desde el primer mensaje (producto, cantidad, cliente incluso si es un nombre nuevo no registrado aún, descuento en porcentaje o Bs., forma de pago, etc.).
+   - Jamás descartes un nombre de cliente aunque parezca nuevo.
+3) PREGUNTAS SOBRE CÓMO USAR LA PLATAFORMA O CHARLA GENERAL:
+   - Responde directamente en texto cálido y breve (2-4 líneas).
 
-MODOS DE RESPUESTA:
-1) OPERACIONES (venta, cotización, compra, ajuste/merma o registrar cliente nuevo): INVOCA la función declarada correspondiente con los datos que el usuario mencionó (no inventes campos que aún no dijo).
-2) CONSULTAS DE DATOS DE LA BASE DE DATOS: responde EXCLUSIVAMENTE JSON válido:
-   {"sql": "SELECT ...", "explicacion": "Respuesta clara y cercana en español (Bs. si aplica)"}
-3) PREGUNTAS SOBRE CÓMO USAR EL SISTEMA O CHARLA GENERAL: responde directamente en texto cálido y breve (2-4 líneas) sin JSON ni SQL.
+MAPA FUNCIONAL COMPLETO DE LA WEB "MULTIPARTES EL TUERCA":
+- Panel Principal (Dashboard): resumen ejecutivo y exportación PDF/Excel.
+- Seguridad y Acceso (solo Administrador): Usuarios (/usuarios), Roles (/roles: Administrador, Bodeguero, Vendedor, Cajero y Cliente), Bitácora (/auditoria).
+- Catálogo y Compatibilidad: Productos (/productos), Categorías (/categorias), Vehículos (/vehiculos).
+- Almacén e Inventario: Alertas (/inventario/alertas) y Ajustes/Mermas/Uso Interno (/inventario/ajustes).
+- Compras y Proveedores: Proveedores (/proveedores), Compras (/compras), Cuentas por Pagar (/compras/cuentas/por-pagar) e Historial de Costos (/compras/historial/costos).
+- Gestión Comercial y POS: Clientes (/clientes), Cotizaciones (/cotizaciones), Terminal POS (/ventas/pos) e Historial de Ventas (/ventas) con Ticket 80mm y PDF.
+- Tesorería y Caja (/caja): apertura, movimientos menores y arqueo físico de cierre.
+- Reportes Analíticos con Chart.js y exportación PDF/Excel: Rotación (/reportes/rotacion), Rentabilidad (/reportes/rentabilidad), Compras por Distribuidor (/reportes/compras-distribuidor) y Balance por Medios de Pago (/reportes/balance-medios-pago).
 
 ESQUEMA POSTGRESQL (19 TABLAS — SOLO PARA SELECT/WITH):
 1. roles (id_rol, nombre_rol, descripcion)
-2. usuarios (id_usuario, id_rol, nombre_completo, username, correo, telefono, estado, created_at) -- NUNCA password_hash
+2. usuarios (id_usuario, id_rol, nombre_completo, username, correo, telefono, estado, created_at) -- JAMÁS password_hash
 3. categorias (id_categoria, nombre, descripcion)
 4. productos (id_producto, id_categoria, codigo_interno, codigo_oem, nombre_pieza, marca_fabricante, procedencia, precio_venta_sugerido, margen_ganancia, unidad_medida, stock_actual, stock_minimo, stock_seguridad, pasillo, estante, nivel_gaveta, imagen_url, estado)
 5. codigos_alternativos (id_codigo_alt, id_producto, codigo_referencia, marca_alternativa)
@@ -304,7 +400,7 @@ ESQUEMA POSTGRESQL (19 TABLAS — SOLO PARA SELECT/WITH):
 19. bitacoras_auditorias (id_bitacora, id_usuario, fecha_hora, modulo_afectado, accion, registro_id, detalle_cambio, ip_origen)
 
 FUNCIONES ANALÍTICAS: fn_reporte_rotacion_repuestos, fn_reporte_rentabilidad, fn_reporte_compras_distribuidor, fn_reporte_balance_medios_pago, fn_obtener_metricas_pos.
-Solo SELECT o WITH de solo lectura, sin punto y coma final, máximo LIMIT 12, usa ILIKE para búsquedas, jamás password_hash.
+Solo SELECT o WITH de solo lectura, sin punto y coma final, máximo LIMIT 50, usa ILIKE para búsquedas, jamás password_hash.
 PROMPT;
     }
 }

@@ -116,11 +116,12 @@ class AiTextNormalizer
 
     public function formatearRespuestaAmigable(string $explicacion, array $datos): string
     {
-        $explicacion = $this->limpiarTecnicismosDeRespuesta($explicacion);
+        $explicacion = trim($this->limpiarTecnicismosDeRespuesta($explicacion));
         $total = count($datos);
         if ($total === 0) {
-            return trim($explicacion) . ' No encontré registros con esos datos.';
+            return $explicacion . ' No encontré registros con esos datos.';
         }
+
         $primeraFila = $datos[0];
         $pares = [];
         foreach ($primeraFila as $col => $val) {
@@ -131,34 +132,184 @@ class AiTextNormalizer
                     : "{$etiqueta}: {$val}";
             }
         }
-        return trim($explicacion) . " Encontré {$total} resultado(s). Por ejemplo: " . implode(', ', array_slice($pares, 0, 5)) . '.';
+
+        if ($total === 1) {
+            if (count($primeraFila) === 1) {
+                $valUnico = reset($primeraFila);
+                if ($valUnico !== null && $valUnico !== '') {
+                    if ($explicacion !== '' && str_contains($explicacion, (string) $valUnico)) {
+                        return $explicacion;
+                    }
+                    $colUnico = (string) array_key_first($primeraFila);
+                    $valFmt = (is_numeric($valUnico) && preg_match('/(monto|precio|costo|venta|total_bs|utilidad|ingreso|saldo|deuda)/i', $colUnico))
+                        ? 'Bs. ' . number_format((float) $valUnico, 2)
+                        : (string) $valUnico;
+                    return ($explicacion !== '' ? rtrim($explicacion, '. :') . ': ' : 'Resultado: ') . "{$valFmt}.";
+                }
+            }
+            return ($explicacion !== '' ? rtrim($explicacion, '. ') . '. ' : '') . implode(', ', array_slice($pares, 0, 5)) . '.';
+        }
+
+        return $explicacion . " (Encontré {$total} registros; por ejemplo: " . implode(', ', array_slice($pares, 0, 5)) . '.)';
     }
 
     // ─── Detectores de intención, desconocimiento, ordinals y montos ───
 
     public function detectarOperacionTransaccional(string $norm): ?string
     {
-        if (preg_match('/\b(registra(?:r)?|agrega(?:r)?|crea(?:r)?|anota(?:r)?|dar de alta|nuevo)\s+(?:un\s+|una\s+)?(?:nuevo\s+)?(?:cliente|taller|empresa)\b/', $norm)
+        $esPreguntaConsulta = (bool) preg_match('/\b(cuanto|cuantos|cuantas|cantidad de|numero de|total de|lista de|listar|ver|mostrar|historial|reporte|resumen|cuales son|quienes son|como convierto|convertir)\b/', $norm);
+
+        if (preg_match('/\b(registra(?:r)?|agrega(?:r)?|crea(?:r)?|anota(?:r)?|nuevo)\s+(?:un\s+|una\s+)?(?:nuevo\s+)?(?:cliente|taller|empresa)\b/', $norm)
             && !preg_match('/\b(venta|cotizacion|proforma|compra)\b/', $norm)
+            && !$esPreguntaConsulta
         ) {
             return 'preparar_cliente';
         }
-        if (preg_match('/\b(merma|perdida|extravio|uso interno|autoconsumo|conteo fisico|devolucion danada|da de baja|dar de baja|se rompio|se dano|ajuste de inventario|ajustar stock|registrar ajuste)\b/', $norm)) {
+        if (preg_match('/\b(merma|perdida|extravio|uso interno|autoconsumo|conteo fisico|devolucion danada|da de baja|dar de baja|se rompio|se dano|ajuste de inventario|ajustar stock|registrar ajuste)\b/', $norm)
+            && !$esPreguntaConsulta
+        ) {
             return 'preparar_ajuste_inventario';
         }
-        if (preg_match('/\b(registra(?:r)?|ingresa(?:r)?|recepciona(?:r)?|anota(?:r)?|quiero\s+hacer|hacer)\b.*\b(compra|mercaderia|factura de compra)\b/', $norm)
+        if (!$esPreguntaConsulta && (
+            preg_match('/\b(registra(?:r)?|ingresa(?:r)?|recepciona(?:r)?|anota(?:r)?|quiero\s+hacer|hacer|acabo\s+de)\b.*\b(compra(?:r)?|mercaderia|factura de compra)\b/', $norm)
             || preg_match('/^\s*(?:nueva\s+)?compra\s+(?:a|de)\b/', $norm)
-        ) {
+            || preg_match('/^\s*(?:compre|acabo de comprar)\b/', $norm)
+        )) {
             return 'preparar_compra';
         }
-        if (preg_match('/\b(cotiza(?:r|me)?|cotizacion|proforma)\b/', $norm)
-            && !preg_match('/\b(ver|listar|mostrar|cuantas|cuantos|vigentes|vencidas|historial|como convierto|convertir)\b/', $norm)
-        ) {
+        if (!$esPreguntaConsulta && preg_match('/\b(cotiza(?:r|me)?|cotice|acabo de cotizar|cotizacion|proforma)\b/', $norm)) {
             return 'preparar_cotizacion';
         }
-        if (preg_match('/\b(vende(?:r|me|le)?|vendeme|vendele|facturar|cobrar|registra(?:r)?\s+(?:una\s+)?venta|prepara(?:r)?\s+(?:una\s+)?venta|hacer\s+(?:una\s+)?venta|nueva\s+venta|anota(?:r)?\s+(?:una\s+)?venta)\b/', $norm)) {
+        if (!$esPreguntaConsulta && preg_match('/\b(vende(?:r|me|le)?|vendeme|vendele|vendi|vendimos|acabo de vender|acabo de cobrar|despache|facturar|cobrar|registra(?:r)?\s+(?:una\s+)?venta|prepara(?:r)?\s+(?:una\s+)?venta|hacer\s+(?:una\s+)?venta|nueva\s+venta|anota(?:r)?\s+(?:una\s+)?venta)\b/', $norm)) {
             return 'preparar_venta';
         }
+        return null;
+    }
+
+    public function indicaCierreProductos(string $norm): bool
+    {
+        return (bool) preg_match('/\b(y nada mas|nada mas|solo eso|solamente eso|eso es todo|es todo|sin mas productos|ya no mas)\b/u', $norm);
+    }
+
+    /**
+     * Extrae descuento porcentual, en Bs. o explícitamente sin descuento desde texto libre.
+     */
+    public function extraerDescuentoDeTexto(string $norm): ?array
+    {
+        if (preg_match('/\b(sin descuento|sin rebaja|precio normal|cero descuento)\b/u', $norm)) {
+            return ['tipo' => 'sin', 'valor' => 0.0];
+        }
+
+        if (preg_match('/(?:con\s+)?(?:un\s+)?(?:descuento|rebaja)\s+(?:de(?:l)?\s+)?(\d+(?:[\.,]\d+)?)\s*(%|por\s*ciento\b)/u', $norm, $m)
+            || preg_match('/(?:con\s+)?(?:un\s+)?(\d+(?:[\.,]\d+)?)\s*(%|por\s*ciento\b)\s*(?:de\s+)?(?:descuento|rebaja)\b/u', $norm, $m)
+            || preg_match('/\bcon\s+(?:el\s+|un\s+)?(\d+(?:[\.,]\d+)?)\s*(%|por\s*ciento\b)/u', $norm, $m)
+        ) {
+            return ['tipo' => 'pct', 'valor' => min(50.0, max(0.0, (float) str_replace(',', '.', $m[1])))];
+        }
+
+        if (preg_match('/(?:descuento|rebaja|descuentale)\s+(?:de(?:l)?\s+)?(\d+(?:[\.,]\d+)?)\s*(?:bs|bolivianos)?\b/u', $norm, $mBs)
+            || preg_match('/\bmenos\s+(\d+(?:[\.,]\d+)?)\s*(?:bs|bolivianos)\b/u', $norm, $mBs)
+        ) {
+            return ['tipo' => 'bs', 'valor' => max(0.0, (float) str_replace(',', '.', $mBs[1]))];
+        }
+
+        return null;
+    }
+
+    /**
+     * Extrae detalle de pago (monto entregado, referencia o pago exacto) si aparece en la frase.
+     */
+    public function extraerPagoDetalleDeTexto(string $preguntaLimpia, string $norm, ?string $metodo): ?array
+    {
+        if (preg_match('/\b(exacto|cabal|justo|sin vuelto)\b/u', $norm)) {
+            return ['omitido' => true];
+        }
+
+        if (($metodo === null || $metodo === 'Efectivo')
+            && preg_match('/\b(?:me\s+pago\s+con|pago\s+con|con\s+un\s+billete\s+de|billete\s+de|recibi)\s*(\d+(?:[\.,]\d+)?)\s*(?:bs|bolivianos)?\b/u', $norm, $mEf)
+        ) {
+            $monto = round((float) str_replace(',', '.', $mEf[1]), 2);
+            if ($monto > 0) {
+                return ['tipo' => 'efectivo', 'data' => ['monto_recibido' => $monto]];
+            }
+        }
+
+        if (in_array($metodo, ['Transferencia/QR', 'Tarjeta Débito/Crédito'], true)
+            && preg_match('/\b(?:ref(?:erencia)?|comprobante|nro|numero|operacion)\s*[:#]?\s*([a-z0-9\-]{2,30})\b/i', $preguntaLimpia, $mRef)
+        ) {
+            return ['tipo' => 'referencia', 'data' => ['nro_referencia' => strtoupper(trim($mRef[1]))]];
+        }
+
+        return null;
+    }
+
+    /**
+     * Extrae el nombre del cliente o taller desde frases como "a Armando Loza", "para Carlos", "al taller El Piston".
+     */
+    public function extraerNombreClienteDeFrase(string $preguntaLimpia): ?string
+    {
+        $limpia = (string) preg_replace(
+            '/\b(?:con\s+(?:un\s+)?descuento\b.*|sin\s+descuento\b.*|descuento\s+(?:de(?:l)?\s+)?\d+.*|en\s+efectivo\b.*|por\s+qr\b.*|por\s+transferencia\b.*|con\s+tarjeta\b.*|pago\s+mixto\b.*|y\s+nada\s+m[aá]s\b.*|nada\s+m[aá]s\b.*|solo\s+eso\b.*|eso\s+es\s+todo\b.*|me\s+pag[oó]\b.*)$/iu',
+            '',
+            $preguntaLimpia
+        );
+        $limpia = trim($limpia, " \t\n\r\0\x0B,.;:");
+        if ($limpia === '') {
+            return null;
+        }
+
+        $wordStop = '(?!(?:a|para|con|en|por|sin|y|de|del|la|el|los|las|descuento|rebaja|efectivo|qr|transferencia|tarjeta|mixto|contado|credito|bolivianos|bs|nada|solo|eso|todo|me|pago)\b)';
+        $tokenRe = $wordStop . '[A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\.\'\-]{1,28}';
+
+        $patrones = [
+            '/\b(?:a\s+nombre\s+de|al\s+cliente|para\s+el\s+cliente|para\s+cliente|al\s+taller|para\s+el\s+taller|para\s+taller|al\s+mec[aá]nico|para\s+el\s+mec[aá]nico|a\s+la\s+empresa|para\s+la\s+empresa)\s+(' . $tokenRe . '(?:\s+' . $tokenRe . '){0,3})/iu',
+            '/\b(?:para|a)\s+(' . $tokenRe . '(?:\s+' . $tokenRe . '){0,3})/iu',
+        ];
+
+        $bloqueados = [
+            'toyota', 'hilux', 'corolla', 'yaris', 'rav4', 'prado', 'suzuki', 'vitara', 'swift', 'jimny', 'alto',
+            'nissan', 'frontier', 'np300', 'sentra', 'versa', 'qashqai', 'hyundai', 'tucson', 'santa', 'accent', 'elantra',
+            'kia', 'sportage', 'rio', 'cerato', 'sorento', 'mitsubishi', 'l200', 'triton', 'montero', 'mazda', 'cx5', 'bt50',
+            'vender', 'vende', 'vendeme', 'vendele', 'vendi', 'cotizar', 'cotiza', 'comprar', 'compra', 'cobrar', 'pagar', 'registrar',
+            'freno', 'frenos', 'pastilla', 'pastillas', 'disco', 'discos', 'balata', 'balatas', 'zapata', 'zapatas',
+            'amortiguador', 'amortiguadores', 'bujia', 'bujias', 'filtro', 'filtros', 'aceite', 'embrague', 'bobina', 'sensor',
+            'efectivo', 'credito', 'contado', 'tarjeta', 'transferencia', 'mixto', 'normal', 'mostrador', 'ocasional',
+            'cualquiera', 'mitad', 'precio', 'costo', 'unidades', 'juegos', 'pares', 'piezas', 'delantero', 'delantera',
+            'trasero', 'trasera', 'favor', 'manana', 'hoy', 'ayer', 'todos', 'todas', 'paso', 'tiempo',
+        ];
+
+        foreach ($patrones as $idx => $patron) {
+            if (!preg_match_all($patron, $limpia, $matches, PREG_SET_ORDER)) {
+                continue;
+            }
+            $candidatos = $idx === 1 ? array_reverse($matches) : $matches;
+            foreach ($candidatos as $m) {
+                $cand = trim((string) ($m[1] ?? ''));
+                if (mb_strlen($cand) < 3) {
+                    continue;
+                }
+                $candNorm = $this->normalizarTexto($cand);
+                if ($this->indicaClientePorDefecto($candNorm)) {
+                    continue;
+                }
+                $palabras = preg_split('/\s+/', $candNorm) ?: [];
+                if (empty($palabras)) {
+                    continue;
+                }
+                $tieneBloqueado = false;
+                foreach ($palabras as $pw) {
+                    if (in_array($pw, $bloqueados, true)) {
+                        $tieneBloqueado = true;
+                        break;
+                    }
+                }
+                if ($tieneBloqueado) {
+                    continue;
+                }
+                return mb_convert_case($cand, MB_CASE_TITLE, 'UTF-8');
+            }
+        }
+
         return null;
     }
 
@@ -215,7 +366,7 @@ class AiTextNormalizer
 
     public function esConsultaGeneralOAnaliticaExplicita(string $norm): bool
     {
-        return (bool) preg_match('/\b(que roles|que usuarios|que proveedores|que categorias|que puede hacer|que puedes hacer|como cierro|como abro|como exporto|stock critico|stock bajo|rotacion|hueso|rentabilidad|ganancias|margen|cuentas por pagar|balance.*pago|cuanto vendimos|cuantas ventas|como esta la caja|compatibles para)\b/', $norm);
+        return (bool) preg_match('/\b(que roles|que usuarios|que proveedores|que categorias|que puede hacer|que puedes hacer|como cierro|como abro|como exporto|stock critico|stock bajo|rotacion|hueso|rentabilidad|ganancias|margen|cuentas por pagar|balance.*pago|cuanto vendimos|cuantas ventas|como esta la caja|compatibles para|cuantos productos|cuantos repuestos|cantidad de productos|cuantos administradores|cuantos usuarios|cuantos clientes|cuantos proveedores|cuantos vehiculos|cuantas categorias|cuantas compras|cuantas cotizaciones)\b/', $norm);
     }
 
     public function esRespuestaAfirmativa(string $norm): bool
@@ -334,8 +485,8 @@ class AiTextNormalizer
             $texto = (string) preg_replace('/\b(primera|primero|segunda|segundo|tercera|tercero|cuarta|cuarto|quinta|quinto)\b/u', ' ', $texto);
         }
 
-        $texto = (string) preg_replace('/\b(?:a|costo(?:\s+de)?|precio(?:\s+de)?)\s+\d+(?:[\.,]\d+)?\s*(?:bs|bolivianos)?\b/u', ' ', $texto);
-        $texto = (string) preg_replace('/\b\d+(?:[\.,]\d+)?\s*(?:bs|bolivianos|%|por\s*ciento|dias?)\b/u', ' ', $texto);
+        $texto = (string) preg_replace('/\b(?:a|costo(?:\s+de)?|precio(?:\s+de)?)\s+\d+(?:[\.,]\d+)?\s*(?:bs\b|bolivianos\b)?/u', ' ', $texto);
+        $texto = (string) preg_replace('/\b\d+(?:[\.,]\d+)?\s*(?:%|bs\b|bolivianos\b|por\s*ciento\b|dias?\b)/u', ' ', $texto);
         $texto = (string) preg_replace('/descuento\s+(?:de(?:l)?\s+)?\d+(?:[\.,]\d+)?/u', ' ', $texto);
 
         if (preg_match('/\b(\d{1,3})\b/u', $texto, $m)) {
@@ -372,12 +523,18 @@ class AiTextNormalizer
         return null;
     }
 
-    public function extraerFragmentoProductoLimpio(string $norm, string $operacion): string
+    public function extraerFragmentoProductoLimpio(string $norm, string $operacion, ?string $clienteNombre = null): string
     {
-        $sinPrecio = preg_replace('/\b(?:a|por|de|costo(?:\s+de)?)\s+\d+(?:[\.,]\d+)?\s*(?:bs|bolivianos|%)\b/u', ' ', $norm);
-        $sinDesc = preg_replace('/(?:con\s+)?(?:un\s+)?\d+(?:[\.,]\d+)?\s*(?:%|por\s*ciento)\s*(?:de\s+)?descuento|descuento\s+(?:de(?:l)?\s+)?\d+(?:[\.,]\d+)?\s*(?:%|bs|bolivianos)?/u', ' ', (string) $sinPrecio);
+        $sinCierre = preg_replace('/\b(y nada mas|nada mas|solo eso|solamente eso|eso es todo|es todo|sin mas productos)\b/u', ' ', $norm);
+        $sinPrecio = preg_replace('/\b(?:a|por|de|costo(?:\s+de)?|me\s+pago\s+con|pago\s+con|billete\s+de)\s+\d+(?:[\.,]\d+)?\s*(?:%|bs\b|bolivianos\b)?/u', ' ', (string) $sinCierre);
+        $sinDesc = preg_replace('/(?:con\s+)?(?:un\s+)?\d+(?:[\.,]\d+)?\s*(?:%|por\s*ciento)\s*(?:de\s+)?(?:descuento|rebaja)|(?:descuento|rebaja)\s+(?:de(?:l)?\s+)?\d+(?:[\.,]\d+)?\s*(?:%|bs|bolivianos)?|menos\s+\d+(?:[\.,]\d+)?\s*(?:bs|bolivianos)/u', ' ', (string) $sinPrecio);
         $sinFactura = preg_replace('/\bfactura\s+[a-z0-9\-]+/u', ' ', (string) $sinDesc);
-        $sinPago = preg_replace('/\b(en efectivo|por qr|con qr|por transferencia|con tarjeta|pago mixto|al contado|a credito|por \d+ dias)\b/u', ' ', (string) $sinFactura);
+        $sinPago = preg_replace('/\b(en efectivo|por qr|con qr|por transferencia|con tarjeta|pago mixto|al contado|a credito|por \d+ dias|sin descuento|precio normal)\b/u', ' ', (string) $sinFactura);
+
+        if ($clienteNombre !== null && trim($clienteNombre) !== '') {
+            $cliNorm = $this->normalizarTexto(trim($clienteNombre));
+            $sinPago = preg_replace('/\b(?:a\s+nombre\s+de|al\s+cliente|para\s+el\s+cliente|al\s+taller|para\s+el\s+taller|para|a)?\s*' . preg_quote($cliNorm, '/') . '\b/u', ' ', (string) $sinPago);
+        }
 
         if ($operacion === 'preparar_compra') {
             $provs = DB::table('proveedores')->where('estado', true)->pluck('razon_social');
@@ -392,7 +549,7 @@ class AiTextNormalizer
         $sinPago = preg_replace('/\b(?:a\s+un|al|para\s+un|para\s+el)?\s*(?:taller|cliente|mecanico)\s*(?:amigo|frecuente)?\b/u', ' ', (string) $sinPago);
 
         $sinRuido = preg_replace(
-            '/\b(registra|registrar|prepara|preparar|vende|vender|vendeme|vendele|cotiza|cotizar|cotizame|compra|comprar|ingresa|ingresar|recepciona|recepcionar|aplica|aplicar|reporta|reportar|anota|anotar|hacer|quiero|necesito|dame|ponme|poneme|nueva|nuevo|una|un|unas|unos|venta|cotizacion|proforma|merma|perdida|extravio|uso interno|autoconsumo|conteo fisico|devolucion danada|ajuste|de|del|la|el|los|las|por|para|al|con|en|a|que|se|rompio|dano|perdio|da|baja|unidades|unidad|uds|piezas|pzs|juegos|juego|pares|par|efectivo|qr|tarjeta|mixto|credito|contado|cliente|proveedor|factura|normal|viejo|bolivianos|bs|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|\d+)\b/u',
+            '/\b(acabo|acaba|registra|registrar|prepara|preparar|vende|vender|vendeme|vendele|vendi|vendimos|despache|cotiza|cotizar|cotizame|cotice|compra|comprar|compre|ingresa|ingresar|recepciona|recepcionar|aplica|aplicar|reporta|reportar|anota|anotar|hacer|quiero|necesito|dame|ponme|poneme|nueva|nuevo|una|un|unas|unos|venta|cotizacion|proforma|merma|perdida|extravio|uso interno|autoconsumo|conteo fisico|devolucion danada|ajuste|de|del|la|el|los|las|por|para|al|con|en|a|que|se|rompio|dano|perdio|da|baja|unidades|unidad|uds|piezas|pzs|juegos|juego|pares|par|efectivo|qr|tarjeta|mixto|credito|contado|cliente|proveedor|factura|normal|viejo|bolivianos|bs|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|\d+)\b/u',
             ' ',
             (string) $sinPago
         );

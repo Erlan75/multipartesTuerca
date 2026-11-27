@@ -196,27 +196,34 @@ class AiTransactionExecutor
             }
         }
 
+        $esClienteNuevoSugerido = !empty($cliente->cliente_nuevo_sugerido);
+
         $payload = [
-            'operacion'       => 'preparar_venta',
-            'user_id'         => $userId,
-            'created_at'      => now()->timestamp,
-            'id_cliente'      => (int) $cliente->id_cliente,
-            'cliente_nombre'  => $cliente->nombre_razon_social,
-            'id_sesion_caja'  => (int) $sesionAbierta->id_sesion,
-            'metodo_pago'     => $metodoPago,
-            'descuento_total' => $descuento,
-            'subtotal_bruto'  => $bruto,
-            'total_neto'      => $neto,
-            'monto_recibido'  => $montoRecibido,
-            'nro_referencia'  => $referencia,
-            'monto_efectivo'  => $montoEfec,
-            'monto_digital'   => $montoDig,
-            'items'           => $items,
-            'draft_snapshot'  => $draft,
+            'operacion'              => 'preparar_venta',
+            'user_id'                => $userId,
+            'created_at'             => now()->timestamp,
+            'id_cliente'             => (int) $cliente->id_cliente,
+            'cliente_nombre'         => $cliente->nombre_razon_social,
+            'cliente_nuevo_sugerido' => $esClienteNuevoSugerido,
+            'id_sesion_caja'         => (int) $sesionAbierta->id_sesion,
+            'metodo_pago'            => $metodoPago,
+            'descuento_total'        => $descuento,
+            'subtotal_bruto'         => $bruto,
+            'total_neto'             => $neto,
+            'monto_recibido'         => $montoRecibido,
+            'nro_referencia'         => $referencia,
+            'monto_efectivo'         => $montoEfec,
+            'monto_digital'          => $montoDig,
+            'items'                  => $items,
+            'draft_snapshot'         => $draft,
         ];
 
+        $etiquetaCliente = $esClienteNuevoSugerido
+            ? "{$cliente->nombre_razon_social} (Cliente nuevo / ocasional)"
+            : $cliente->nombre_razon_social . ' (' . ($cliente->ci_nit ?: 'S/N') . ')';
+
         $resumen = [
-            'Cliente'    => $cliente->nombre_razon_social . ' (' . ($cliente->ci_nit ?: 'S/N') . ')',
+            'Cliente'    => $etiquetaCliente,
             'Caja'       => "Caja #{$sesionAbierta->id_sesion} (Abierta)",
             'Forma Pago' => $metodoPago,
             'Descuento'  => 'Bs. ' . number_format($descuento, 2),
@@ -258,17 +265,19 @@ class AiTransactionExecutor
     {
         $diasVigencia = max(1, min(90, $diasVigencia));
         $total = round(array_sum(array_column($items, 'subtotal')), 2);
+        $esClienteNuevoSugerido = !empty($cliente->cliente_nuevo_sugerido);
 
         $payload = [
-            'operacion'      => 'preparar_cotizacion',
-            'user_id'        => $userId,
-            'created_at'     => now()->timestamp,
-            'id_cliente'     => (int) $cliente->id_cliente,
-            'cliente_nombre' => $cliente->nombre_razon_social,
-            'dias_vigencia'  => $diasVigencia,
-            'total_neto'     => $total,
-            'items'          => $items,
-            'draft_snapshot' => $draft,
+            'operacion'              => 'preparar_cotizacion',
+            'user_id'                => $userId,
+            'created_at'             => now()->timestamp,
+            'id_cliente'             => (int) $cliente->id_cliente,
+            'cliente_nombre'         => $cliente->nombre_razon_social,
+            'cliente_nuevo_sugerido' => $esClienteNuevoSugerido,
+            'dias_vigencia'          => $diasVigencia,
+            'total_neto'             => $total,
+            'items'                  => $items,
+            'draft_snapshot'         => $draft,
         ];
 
         $token = $this->guardarAccionPendiente($payload);
@@ -287,7 +296,7 @@ class AiTransactionExecutor
                 'titulo'       => 'Resumen de Cotización / Proforma',
                 'badge'        => 'Proforma',
                 'resumen'      => [
-                    'Cliente'  => $cliente->nombre_razon_social,
+                    'Cliente'  => $esClienteNuevoSugerido ? "{$cliente->nombre_razon_social} (Cliente nuevo / ocasional)" : $cliente->nombre_razon_social,
                     'Vigencia' => "{$diasVigencia} días (hasta " . Carbon::today()->addDays($diasVigencia)->format('d/m/Y') . ')',
                     'Total'    => 'Bs. ' . number_format($total, 2),
                 ],
@@ -465,6 +474,52 @@ class AiTransactionExecutor
 
     // ─── Ejecutores atómicos en PostgreSQL ───
 
+    /**
+     * Si el cliente fue capturado por nombre nuevo y aún apunta al ID 1 (Ocasional),
+     * lo busca o lo crea automáticamente antes de ejecutar la venta o cotización.
+     */
+    private function resolverOCrearClienteSugerido(array $payload): int
+    {
+        $idCliente = (int) ($payload['id_cliente'] ?? 1);
+        $nombre = trim((string) ($payload['cliente_nombre'] ?? ''));
+        if (empty($payload['cliente_nuevo_sugerido']) || $idCliente !== 1 || mb_strlen($nombre) < 3) {
+            return $idCliente > 0 ? $idCliente : 1;
+        }
+
+        try {
+            $existente = DB::table('clientes')
+                ->whereRaw('LOWER(TRIM(nombre_razon_social)) = LOWER(TRIM(?))', [$nombre])
+                ->first();
+            if ($existente) {
+                return (int) $existente->id_cliente;
+            }
+
+            $tipo = preg_match('/\btaller\b/i', $nombre)
+                ? 'Taller/Mecánico'
+                : (preg_match('/\b(empresa|flota|srl|sa)\b/i', $nombre) ? 'Empresa/Flota' : 'Particular');
+
+            $nuevoId = (int) DB::table('clientes')->insertGetId([
+                'nombre_razon_social' => $nombre,
+                'ci_nit'              => '0',
+                'telefono'            => null,
+                'tipo_cliente'        => $tipo,
+                'descuento_frecuente' => 0.00,
+            ], 'id_cliente');
+
+            Bitacora::registrar(
+                'Ventas / Clientes',
+                'INSERT',
+                $nuevoId,
+                json_encode(['origen' => 'ASISTENTE_IA_AUTO_CLIENTE', 'nombre_razon_social' => $nombre, 'tipo_cliente' => $tipo])
+            );
+
+            return $nuevoId > 0 ? $nuevoId : 1;
+        } catch (\Throwable $e) {
+            Log::warning('AiTransactionExecutor::resolverOCrearClienteSugerido fallback a ID 1: ' . $e->getMessage());
+            return 1;
+        }
+    }
+
     private function guardarAccionPendiente(array $payload): string
     {
         $token = (string) Str::uuid();
@@ -498,8 +553,11 @@ class AiTransactionExecutor
         $montoEfec = (float) ($payload['monto_efectivo'] ?? ($metodoPago === 'Efectivo' ? $totalNeto : 0.0));
         $montoDig  = (float) ($payload['monto_digital'] ?? ($metodoPago !== 'Efectivo' ? $totalNeto : 0.0));
 
+        $idCliente = $this->resolverOCrearClienteSugerido($payload);
+
         $detallesPago = [
             'origen'          => 'ASISTENTE_IA_CONFIRMADO',
+            'cliente_ref'     => $payload['cliente_nombre'] ?? null,
             'metodo_pago'     => $metodoPago,
             'monto_recibido'  => $montoRecibido,
             'cambio_devuelto' => $vuelto,
@@ -509,7 +567,7 @@ class AiTransactionExecutor
         ];
 
         $res = DB::select('CALL sp_registrar_venta(?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, NULL)', [
-            (int) $payload['id_cliente'],
+            $idCliente,
             $userId,
             $idSesion,
             $metodoPago,
@@ -544,9 +602,10 @@ class AiTransactionExecutor
             'precio'      => (float) $it['precio_unitario'],
         ], $payload['items']);
 
+        $idCliente = $this->resolverOCrearClienteSugerido($payload);
         $dias = (int) ($payload['dias_vigencia'] ?? 7);
         $res = DB::select('CALL sp_registrar_cotizacion(?, ?, ?, ?::jsonb, NULL)', [
-            (int) $payload['id_cliente'],
+            $idCliente,
             $userId,
             $dias,
             json_encode($itemsSp),
